@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet ef *)",
+      "Bash(dotnet new *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet build *)",
+      "Bash(timeout 8 dotnet run --no-build --no-launch-profile --urls http://localhost:5180)",
+      "Bash(mkdir -p /tmp/orv_epub)",
+      "Bash(unzip -q -o \"/Users/medardduris/Downloads/Omniscient Reader's Viewpoint - Sing-shong \\(singsyong\\).epub\" -d /tmp/orv_epub)",
+      "Read(//tmp/orv_epub/**)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(psql -h localhost -p 5432 -U postgres -d postgres -c \"SELECT 1;\")",
+      "Bash(sed -n '1260,1320p' \"/Users/medardduris/Desktop/ORV Wiki/orv-wiki-frontend.html\")",
+      "Bash(sed -n '1360,1450p' \"/Users/medardduris/Desktop/ORV Wiki/orv-wiki-frontend.html\")",
+      "Bash(unzip -o \"/Users/medardduris/Downloads/Omniscient Reader's Viewpoint - Sing-shong \\(singsyong\\).epub\" -d /tmp/orv_epub)",
+      "Read(//private/tmp/orv_epub/**)",
+      "Bash(awk '/<script>/{f=1;next} /<\\\\/script>/{f=0} f' orv-wiki-frontend.html)",
+      "Bash(node --check /tmp/orv-fe.js)"
+    ]
+  }
+}

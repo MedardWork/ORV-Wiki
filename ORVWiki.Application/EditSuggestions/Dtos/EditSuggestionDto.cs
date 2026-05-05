@@ -1,0 +1,18 @@
+using System.Text.Json;
+using ORVWiki.Application.Enums;
+
+namespace ORVWiki.Application.EditSuggestions.Dtos;
+
+public record EditSuggestionDto(
+    long Id,
+    long UserId,
+    string Username,
+    long PageId,
+    string PageSlug,
+    JsonElement ProposedChanges,
+    string? Reason,
+    EditSuggestionStatus Status,
+    long? ReviewedByUserId,
+    string? ReviewedByUsername,
+    DateTimeOffset? ReviewedAt,
+    DateTimeOffset CreatedAt);

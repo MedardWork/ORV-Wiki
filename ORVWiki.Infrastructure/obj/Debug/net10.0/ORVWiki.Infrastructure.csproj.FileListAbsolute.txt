@@ -1,0 +1,17 @@
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.csproj.AssemblyReference.cache
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.AssemblyInfoInputs.cache
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.AssemblyInfo.cs
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.csproj.CoreCompileInputs.cache
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/bin/Debug/net10.0/ORVWiki.Infrastructure.deps.json
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/bin/Debug/net10.0/ORVWiki.Infrastructure.runtimeconfig.json
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/bin/Debug/net10.0/ORVWiki.Infrastructure.dll
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/bin/Debug/net10.0/ORVWiki.Infrastructure.pdb
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/bin/Debug/net10.0/ORVWiki.Application.dll
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/bin/Debug/net10.0/ORVWiki.Application.pdb
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki..1D7CC498.Up2Date
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.dll
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/refint/ORVWiki.Infrastructure.dll
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.pdb
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ORVWiki.Infrastructure.genruntimeconfig.cache
+/Users/medardduris/RiderProjects/ORV_Wiki_Backend/ORVWiki.Infrastructure/obj/Debug/net10.0/ref/ORVWiki.Infrastructure.dll
