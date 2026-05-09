@@ -107,6 +107,16 @@ public class EditSuggestionService(
         return ToDto(s);
     }
 
+    public async Task DeleteOwnAsync(long id, long userId, CancellationToken ct = default)
+    {
+        var s = await ReloadAsync(id, ct);
+        if (s.UserId != userId)
+            throw new ForbiddenException("You can only delete your own suggestions.");
+
+        suggestions.Remove(s);
+        await suggestions.SaveChangesAsync(ct);
+    }
+
     private async Task<EditSuggestion> ReloadAsync(long id, CancellationToken ct)
         => await suggestions.GetWithPageAndUsersAsync(id, ct)
             ?? throw new NotFoundException($"Edit suggestion {id} not found.");
@@ -152,6 +162,7 @@ public class EditSuggestionService(
         s.User?.Username ?? "[unknown]",
         s.PageId,
         s.Page.Slug,
+        s.Page.Title,
         s.ProposedChanges.RootElement.Clone(),
         s.Reason,
         s.Status,

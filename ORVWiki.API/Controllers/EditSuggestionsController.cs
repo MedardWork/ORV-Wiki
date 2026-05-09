@@ -67,4 +67,12 @@ public class EditSuggestionsController(
         var reviewerId = CurrentUser.GetId(User);
         return Ok(await suggestions.RejectAsync(id, reviewerId, ct));
     }
+
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> DeleteOwn([FromRoute] long id, CancellationToken ct)
+    {
+        var userId = CurrentUser.GetId(User);
+        await suggestions.DeleteOwnAsync(id, userId, ct);
+        return NoContent();
+    }
 }

@@ -78,9 +78,13 @@ function buildMenubar() {
   cPanel.appendChild(el('div', { class:'menu-label' }, 'My Activity'));
   cPanel.appendChild(el('button', { class:'menu-item', onclick:() => { closeAllMenus(); navigate('bookmarks'); }}, el('span', { class:'icon' }, '★'), 'My Bookmarks'));
   cPanel.appendChild(el('button', { class:'menu-item', onclick:() => { closeAllMenus(); navigate('suggestions'); }}, el('span', { class:'icon' }, '✎'), 'My Edit Suggestions'));
-  cPanel.appendChild(el('div', { class:'menu-divider' }));
-  cPanel.appendChild(el('div', { class:'menu-label' }, 'Review'));
-  cPanel.appendChild(el('button', { class:'menu-item', onclick:() => { closeAllMenus(); navigate('queue'); }}, el('span', { class:'icon' }, '⚖'), 'Suggestion Queue'));
+  // Editor-only: the queue endpoint requires Editor or Admin, so readers
+  // would just hit a 403 if they clicked it.
+  if (State.user && (State.user.role === 'editor' || State.user.role === 'admin')) {
+    cPanel.appendChild(el('div', { class:'menu-divider' }));
+    cPanel.appendChild(el('div', { class:'menu-label' }, 'Review'));
+    cPanel.appendChild(el('button', { class:'menu-item', onclick:() => { closeAllMenus(); navigate('queue'); }}, el('span', { class:'icon' }, '⚖'), 'Suggestion Queue'));
+  }
   community.appendChild(cBtn);
   community.appendChild(cPanel);
   bar.appendChild(community);

@@ -9,6 +9,7 @@ public record EditSuggestionDto(
     string Username,
     long PageId,
     string PageSlug,
+    string PageTitle,
     JsonElement ProposedChanges,
     string? Reason,
     EditSuggestionStatus Status,

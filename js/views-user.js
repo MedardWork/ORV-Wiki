@@ -82,10 +82,16 @@ function suggestionsList(items, asReviewer=false) {
   const list = el('div', { style:{ display:'flex', flexDirection:'column', gap:'.6rem' }});
   items.forEach(s => {
     const status = (s.status || s.Status || 'pending').toLowerCase();
+    const isMine = State.user && (s.userId ?? s.user_id) === State.user.id;
+    const titleText = s.pageTitle || s.PageTitle || ('Page #' + (s.pageId ?? s.page_id));
+    const slug = s.pageSlug || s.page_slug;
+    const titleNode = slug
+      ? el('a', { href:'#/page/'+slug }, titleText)
+      : titleText;
     const card = el('div', { class:'detail-body', style:{ padding:'1rem 1.2rem', margin:0 }},
       el('div', { style:{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:'.6rem' }},
         el('div', {},
-          el('h4', { style:{ marginBottom:'.2rem' }}, s.pageTitle || s.PageTitle || ('Page #' + (s.pageId ?? s.page_id))),
+          el('h4', { style:{ marginBottom:'.2rem' }}, titleNode),
           el('div', { style:{ fontSize:'.78rem', color:'var(--text-3)' }},
             'Submitted ', fmtDate(s.createdAt || s.created_at),
             (s.username ? ' by ' + s.username : ''),
@@ -96,15 +102,23 @@ function suggestionsList(items, asReviewer=false) {
       s.reason ? el('p', { style:{ marginTop:'.6rem', fontStyle:'italic', color:'var(--text-2)' }}, '"' + s.reason + '"') : null,
       el('pre', { style:{ marginTop:'.6rem', padding:'.6rem .8rem', background:'var(--space)', borderRadius:'5px', fontSize:'.8rem', overflowX:'auto', color:'var(--cyan)', border:'1px solid var(--border)' }},
         JSON.stringify(s.proposedChanges || s.proposed_changes || {}, null, 2)),
-      asReviewer && status === 'pending' ? el('div', { style:{ marginTop:'.8rem', display:'flex', gap:'.4rem' }},
-        el('button', { class:'btn btn-primary btn-sm', onclick:async () => {
+      (asReviewer && status === 'pending') || isMine ? el('div', { style:{ marginTop:'.8rem', display:'flex', gap:'.4rem', flexWrap:'wrap' }},
+        asReviewer && status === 'pending' ? el('button', { class:'btn btn-primary btn-sm', onclick:async () => {
           try { await api.post('/api/edit-suggestions/'+s.id+'/approve'); toast('Approved', 'success'); renderQueue(); }
           catch (e) { toast(e.message, 'error'); }
-        }}, '✓ Approve'),
-        el('button', { class:'btn btn-danger btn-sm', onclick:async () => {
+        }}, '✓ Approve') : null,
+        asReviewer && status === 'pending' ? el('button', { class:'btn btn-danger btn-sm', onclick:async () => {
           try { await api.post('/api/edit-suggestions/'+s.id+'/reject'); toast('Rejected'); renderQueue(); }
           catch (e) { toast(e.message, 'error'); }
-        }}, '✕ Reject'),
+        }}, '✕ Reject') : null,
+        isMine ? el('button', { class:'btn btn-ghost btn-sm', onclick:async () => {
+          if (!confirm('Delete this suggestion? This cannot be undone.')) return;
+          try {
+            await api.del('/api/edit-suggestions/'+s.id);
+            toast('Deleted');
+            asReviewer ? renderQueue() : renderMySuggestions();
+          } catch (e) { toast(e.message, 'error'); }
+        }}, '🗑 Delete') : null,
       ) : null,
     );
     list.appendChild(card);

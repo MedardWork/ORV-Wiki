@@ -19,4 +19,5 @@ public interface IEditSuggestionService
 
     Task<EditSuggestionDto> ApproveAsync(long id, long reviewerId, CancellationToken ct = default);
     Task<EditSuggestionDto> RejectAsync(long id, long reviewerId, CancellationToken ct = default);
+    Task DeleteOwnAsync(long id, long userId, CancellationToken ct = default);
 }
