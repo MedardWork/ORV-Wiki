@@ -132,12 +132,17 @@ function applyAuth(authResp) {
     State.user.currentChapter = State.user.currentChapter ?? Number(State.user.current_chapter) ?? 0;
     State.user.role = State.user.role || State.user.roles || 'reader';
   }
+  // Rebuild the menubar — its Community panel includes role-gated entries
+  // (Suggestion Queue is editor/admin only), so it has to be regenerated
+  // whenever the user's role might have changed.
+  buildMenubar();
   renderUserArea();
 }
 
 function logout() {
   State.token = null;
   State.user = null;
+  buildMenubar();
   renderUserArea();
   navigate('');
   toast('Signed out');
