@@ -55,6 +55,7 @@ internal static class Arc01_ThreeWaysToSurvive
                 "carriage 3807. The 1864th iteration of the *Three Ways to Survive in a Ruined World* " +
                 "timeline — the result of more than a thousand prior regressions, each ending in the " +
                 "death of the protagonist and the rewinding of the scenarios to their start.[/spoiler]",
+            color: "#1F2937", displayOrder: 2,
             ct: ct);
 
         var prevLine = await UpsertWorldlineAsync(db,
@@ -64,6 +65,7 @@ internal static class Arc01_ThreeWaysToSurvive
                 "[spoiler ch=266]The immediately preceding regression. The worldline followed by the " +
                 "canonical text of *Ways of Survival* — i.e. the version Kim Dokja read for ten years. " +
                 "Yoo Junghyuk's memories at the start of the 1864th round are inherited from this line.[/spoiler]",
+            color: "#3B82F6", displayOrder: 1,
             ct: ct);
         // Regression chain: 1864 ← 1863
         var mainLineEntity = db.Worldlines.Find(mainLine.Id);

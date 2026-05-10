@@ -45,7 +45,7 @@ public interface IAppDbContext
     DbSet<ScenarioParticipant> ScenarioParticipants { get; }
     DbSet<ScenarioLocation> ScenarioLocations { get; }
     DbSet<PageTag> PageTags { get; }
-    DbSet<EventConnection> EventConnections { get; }
+    DbSet<Jump> Jumps { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -5,4 +5,6 @@ public record WorldlineNodeDto(
     int LineNumber,
     string? Name,
     bool IsMain,
-    long? ParentWorldlineId);
+    long? ParentWorldlineId,
+    string? Color,
+    int DisplayOrder);

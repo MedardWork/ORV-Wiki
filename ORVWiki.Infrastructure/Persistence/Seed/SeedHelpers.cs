@@ -290,6 +290,7 @@ internal static class SeedHelpers
     public static async Task<Worldline> UpsertWorldlineAsync(
         AppDbContext db, string slug, int lineNumber, string? name, bool isMain,
         int discoveryChapter, string? description = null, long? parentWorldlineId = null,
+        string? color = null, int displayOrder = 0,
         CancellationToken ct = default)
     {
         var page = await UpsertPageAsync(db, slug, name ?? $"{lineNumber}th Worldline",
@@ -301,6 +302,7 @@ internal static class SeedHelpers
             {
                 PageId = page.Id, LineNumber = lineNumber, Name = name, IsMain = isMain,
                 Description = description, ParentWorldlineId = parentWorldlineId,
+                Color = color, DisplayOrder = displayOrder,
             };
             db.Worldlines.Add(w);
             await db.SaveChangesAsync(ct);
@@ -309,6 +311,7 @@ internal static class SeedHelpers
         {
             w.LineNumber = lineNumber; w.Name = name; w.IsMain = isMain;
             w.Description = description; w.ParentWorldlineId = parentWorldlineId;
+            w.Color = color; w.DisplayOrder = displayOrder;
         }
         return w;
     }
@@ -343,8 +346,9 @@ internal static class SeedHelpers
 
     public static async Task<Event> UpsertEventAsync(
         AppDbContext db, string slug, string title, int chapterNumber,
-        EventImportance importance, string? description, int? eventOrder = null,
-        long? locationId = null, long? worldlineId = null, CancellationToken ct = default)
+        EventImportance importance, string? description, double? eventOrder = null,
+        long? locationId = null, long? worldlineId = null, string? lengthEstimate = null,
+        CancellationToken ct = default)
     {
         var page = await UpsertPageAsync(db, slug, title, EntityType.Event, chapterNumber, description, ct);
         var e = await db.Events.FirstOrDefaultAsync(x => x.PageId == page.Id, ct);
@@ -355,6 +359,7 @@ internal static class SeedHelpers
                 PageId = page.Id, Title = title, Description = description,
                 ChapterNumber = chapterNumber, Importance = importance,
                 EventOrder = eventOrder, LocationId = locationId, WorldlineId = worldlineId,
+                LengthEstimate = lengthEstimate,
             };
             db.Events.Add(e);
             await db.SaveChangesAsync(ct);
@@ -364,6 +369,7 @@ internal static class SeedHelpers
             e.Title = title; e.Description = description;
             e.ChapterNumber = chapterNumber; e.Importance = importance;
             e.EventOrder = eventOrder; e.LocationId = locationId; e.WorldlineId = worldlineId;
+            e.LengthEstimate = lengthEstimate;
         }
         return e;
     }

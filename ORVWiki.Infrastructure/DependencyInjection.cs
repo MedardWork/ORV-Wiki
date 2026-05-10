@@ -69,7 +69,6 @@ public static class DependencyInjection
         b.MapEnum<CharacterConstellationRel>();
         b.MapEnum<EventCharacterRole>();
         b.MapEnum<ScenarioOutcome>();
-        b.MapEnum<EventConnectionType>();
         b.MapEnum<CommentReactionType>();
         b.MapEnum<EditSuggestionStatus>();
         b.MapEnum<NotificationType>();

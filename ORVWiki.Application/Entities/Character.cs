@@ -31,5 +31,4 @@ public class Character
 
     public ICollection<Constellation> DeifiedConstellations { get; set; } = new List<Constellation>();
     public ICollection<Fable> OriginatedFables { get; set; } = new List<Fable>();
-    public ICollection<EventConnection> EventConnections { get; set; } = new List<EventConnection>();
 }

@@ -13,4 +13,6 @@ public record WorldlineDto(
     string? Name,
     long? ParentWorldlineId,
     bool IsMain,
+    string? Color,
+    int DisplayOrder,
     RenderedContent Description);

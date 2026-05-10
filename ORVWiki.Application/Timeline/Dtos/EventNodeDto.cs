@@ -9,4 +9,5 @@ public record EventNodeDto(
     long? WorldlineId,
     long? LocationId,
     EventImportance Importance,
-    int? EventOrder);
+    double? EventOrder,
+    string? LengthEstimate);

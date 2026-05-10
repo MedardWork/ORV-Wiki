@@ -23,6 +23,8 @@ public class WorldlineService(
         w.Name,
         w.ParentWorldlineId,
         w.IsMain,
+        w.Color,
+        w.DisplayOrder,
         Spoilers.RenderInline(w.Description, currentChapter));
 
     protected override WorldlineListItemDto ToListItem(Worldline w) => new(

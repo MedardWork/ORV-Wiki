@@ -16,4 +16,5 @@ public record EventDto(
     long? LocationId,
     long? WorldlineId,
     EventImportance Importance,
-    int? EventOrder);
+    double? EventOrder,
+    string? LengthEstimate);

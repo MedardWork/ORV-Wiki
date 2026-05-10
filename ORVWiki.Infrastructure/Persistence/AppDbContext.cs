@@ -64,7 +64,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ScenarioParticipant> ScenarioParticipants => Set<ScenarioParticipant>();
     public DbSet<ScenarioLocation> ScenarioLocations => Set<ScenarioLocation>();
     public DbSet<PageTag> PageTags => Set<PageTag>();
-    public DbSet<EventConnection> EventConnections => Set<EventConnection>();
+    public DbSet<Jump> Jumps => Set<Jump>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,7 +98,6 @@ public class AppDbContext : DbContext, IAppDbContext
         b.HasPostgresEnum<CharacterConstellationRel>();
         b.HasPostgresEnum<EventCharacterRole>();
         b.HasPostgresEnum<ScenarioOutcome>();
-        b.HasPostgresEnum<EventConnectionType>();
         b.HasPostgresEnum<CommentReactionType>();
         b.HasPostgresEnum<EditSuggestionStatus>();
         b.HasPostgresEnum<NotificationType>();
@@ -244,7 +243,10 @@ public class AppDbContext : DbContext, IAppDbContext
         {
             e.Property(x => x.Name).HasMaxLength(100);
             e.Property(x => x.Description).HasColumnType("text");
+            e.Property(x => x.Color).HasMaxLength(7);
+            e.Property(x => x.DisplayOrder).HasDefaultValue(0);
             e.HasIndex(x => x.LineNumber).IsUnique();
+            e.HasIndex(x => x.Color).IsUnique();
 
             e.HasOne(x => x.Page)
                 .WithOne()
@@ -256,6 +258,10 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithMany(w => w.ChildWorldlines)
                 .HasForeignKey(x => x.ParentWorldlineId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.ToTable(t => t.HasCheckConstraint(
+                "ck_worldline_color_hex",
+                "color IS NULL OR color ~ '^#[0-9A-Fa-f]{6}$'"));
         });
     }
 
@@ -426,6 +432,7 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.Title).HasMaxLength(200).IsRequired();
             e.Property(x => x.Description).HasColumnType("text");
             e.Property(x => x.Importance).HasDefaultValue(EventImportance.Minor);
+            e.Property(x => x.LengthEstimate).HasColumnType("text");
 
             e.HasOne(x => x.Page)
                 .WithOne()
@@ -777,30 +784,33 @@ public class AppDbContext : DbContext, IAppDbContext
             e.HasIndex(x => new { x.PageId, x.TagId }).IsUnique();
         });
 
-        b.Entity<EventConnection>(e =>
+        b.Entity<Jump>(e =>
         {
+            e.Property(x => x.CharacterLabel).HasMaxLength(150).IsRequired();
             e.Property(x => x.Description).HasColumnType("text");
+            e.Property(x => x.LengthEstimate).HasColumnType("text");
 
-            e.HasOne(x => x.SourceEvent)
-                .WithMany(ev => ev.OutgoingConnections)
-                .HasForeignKey(x => x.SourceEventId)
-                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.SourceWorldline)
+                .WithMany(w => w.OutgoingJumps)
+                .HasForeignKey(x => x.SourceWorldlineId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasOne(x => x.TargetEvent)
-                .WithMany(ev => ev.IncomingConnections)
-                .HasForeignKey(x => x.TargetEventId)
-                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TargetWorldline)
+                .WithMany(w => w.IncomingJumps)
+                .HasForeignKey(x => x.TargetWorldlineId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasOne(x => x.Character)
-                .WithMany(c => c.EventConnections)
-                .HasForeignKey(x => x.CharacterId)
+            e.HasOne(x => x.Arc)
+                .WithMany()
+                .HasForeignKey(x => x.ArcId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            e.HasIndex(x => new { x.SourceEventId, x.TargetEventId, x.ConnectionType }).IsUnique();
+            e.HasIndex(x => x.SourceWorldlineId);
+            e.HasIndex(x => x.TargetWorldlineId);
 
             e.ToTable(t => t.HasCheckConstraint(
-                "ck_event_connection_no_self",
-                "source_event_id <> target_event_id"));
+                "ck_jump_cross_worldline",
+                "source_worldline_id <> target_worldline_id"));
         });
     }
 }

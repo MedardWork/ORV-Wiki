@@ -151,15 +151,6 @@ public enum ScenarioOutcome
     Pending
 }
 
-public enum EventConnectionType
-{
-    Regression,
-    Migration,
-    Causality,
-    Prophecy,
-    Parallel
-}
-
 public enum CommentReactionType
 {
     Like,

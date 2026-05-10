@@ -25,7 +25,8 @@ public class EventService(
         e.LocationId,
         e.WorldlineId,
         e.Importance,
-        e.EventOrder);
+        e.EventOrder,
+        e.LengthEstimate);
 
     protected override EventListItemDto ToListItem(Event e) => new(
         e.Id,

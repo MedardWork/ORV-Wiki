@@ -19,9 +19,8 @@ public class Event : IPagedEntity
     public long? WorldlineId { get; set; }
     public Worldline? Worldline { get; set; }
     public EventImportance Importance { get; set; } = EventImportance.Minor;
-    public int? EventOrder { get; set; }
+    public double? EventOrder { get; set; }
+    public string? LengthEstimate { get; set; }
 
     public ICollection<EventCharacter> EventCharacters { get; set; } = new List<EventCharacter>();
-    public ICollection<EventConnection> OutgoingConnections { get; set; } = new List<EventConnection>();
-    public ICollection<EventConnection> IncomingConnections { get; set; } = new List<EventConnection>();
 }

@@ -15,7 +15,12 @@ public class Worldline : IPagedEntity
     public bool IsMain { get; set; }
     public string? Description { get; set; }
 
+    public string? Color { get; set; }
+    public int DisplayOrder { get; set; }
+
     public ICollection<Worldline> ChildWorldlines { get; set; } = new List<Worldline>();
     public ICollection<Location> Locations { get; set; } = new List<Location>();
     public ICollection<Event> Events { get; set; } = new List<Event>();
+    public ICollection<Jump> OutgoingJumps { get; set; } = new List<Jump>();
+    public ICollection<Jump> IncomingJumps { get; set; } = new List<Jump>();
 }
