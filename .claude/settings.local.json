@@ -17,7 +17,11 @@
       "Bash(unzip -o \"/Users/medardduris/Downloads/Omniscient Reader's Viewpoint - Sing-shong \\(singsyong\\).epub\" -d /tmp/orv_epub)",
       "Read(//private/tmp/orv_epub/**)",
       "Bash(awk '/<script>/{f=1;next} /<\\\\/script>/{f=0} f' orv-wiki-frontend.html)",
-      "Bash(node --check /tmp/orv-fe.js)"
+      "Bash(node --check /tmp/orv-fe.js)",
+      "Bash(wc -l \"/Users/medardduris/Desktop/ORV Wiki/ORV_Wiki_Database_Specifikacia.md\" \"/Users/medardduris/Desktop/ORV Wiki/ORV_Wiki_dbdiagram.dbml\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node -c /Users/medardduris/RiderProjects/ORV_Wiki_Backend/js/views-user.js)"
     ]
   }
 }

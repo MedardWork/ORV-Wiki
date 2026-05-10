@@ -421,7 +421,7 @@ var dto = await someService.SomeMethodAsync(..., currentChapter, ct);
 ## 6. Complete API surface
 
 All routes are under `/api/...` unless noted. **Auth column:** `—` = anonymous, `R` = Reader, `E` = Editor, `A` = Admin.
-Open https://localhost:7138 and http://localhost:5044
+Open [https://localhost:7138](https://localhost:7138) and [http://localhost:5044](http://localhost:5044)
 
 ### Auth (`/api/auth`)
 
@@ -478,31 +478,32 @@ Open https://localhost:7138 and http://localhost:5044
 All 16 entities below share the same three-endpoint shape via `PagedEntityReadService` (see §5.1). Every read DTO renders `Title`, `ShortDescription`, and the entity's narrative field(s) through `SpoilerService.RenderInline`.
 
 
-| Method | Path                                  | Auth | Purpose                                                     |
-| ------ | ------------------------------------- | ---- | ----------------------------------------------------------- |
-| GET    | `{base}/?page&pageSize`               | R    | Paginated list of visible entities                          |
-| GET    | `{base}/{id:long}`                    | R    | Single entity by id (404 if hidden by spoiler gate)         |
-| GET    | `{base}/by-slug/{slug}`               | R    | Single entity by Page slug (404 if hidden by spoiler gate)  |
+| Method | Path                    | Auth | Purpose                                                    |
+| ------ | ----------------------- | ---- | ---------------------------------------------------------- |
+| GET    | `{base}/?page&pageSize` | R    | Paginated list of visible entities                         |
+| GET    | `{base}/{id:long}`      | R    | Single entity by id (404 if hidden by spoiler gate)        |
+| GET    | `{base}/by-slug/{slug}` | R    | Single entity by Page slug (404 if hidden by spoiler gate) |
 
 
-| Entity         | Base path             | Narrative fields rendered                                    |
-| -------------- | --------------------- | ------------------------------------------------------------ |
-| `Arc`          | `/api/arcs`           | `Summary`                                                    |
-| `Attribute`    | `/api/attributes`     | `Effect`                                                     |
-| `Concept`      | `/api/concepts`       | `Definition`                                                 |
-| `Constellation`| `/api/constellations` | `Description`                                                |
-| `DemonKing`    | `/api/demon-kings`    | `Description`                                                |
-| `Dokkaebi`     | `/api/dokkaebi`       | `Speciality`                                                 |
-| `Event`        | `/api/events`         | `Title`, `Description`                                       |
-| `Fable`        | `/api/fables`         | `Title`, `Legend`                                            |
-| `Item`         | `/api/items`          | `Description`                                                |
-| `Location`     | `/api/locations`      | `Description`                                                |
-| `Nebula`       | `/api/nebulae`        | `Description`                                                |
-| `OuterGod`     | `/api/outer-gods`     | `Description`                                                |
-| `Scenario`     | `/api/scenarios`      | `Title`, `Conditions`, `Rewards`, `Penalty`                  |
-| `Skill`        | `/api/skills`         | `Effect`                                                     |
-| `Stigma`       | `/api/stigmas`        | `Effect`                                                     |
-| `Worldline`    | `/api/worldlines`     | `Description`                                                |
+
+| Entity          | Base path             | Narrative fields rendered                   |
+| --------------- | --------------------- | ------------------------------------------- |
+| `Arc`           | `/api/arcs`           | `Summary`                                   |
+| `Attribute`     | `/api/attributes`     | `Effect`                                    |
+| `Concept`       | `/api/concepts`       | `Definition`                                |
+| `Constellation` | `/api/constellations` | `Description`                               |
+| `DemonKing`     | `/api/demon-kings`    | `Description`                               |
+| `Dokkaebi`      | `/api/dokkaebi`       | `Speciality`                                |
+| `Event`         | `/api/events`         | `Title`, `Description`                      |
+| `Fable`         | `/api/fables`         | `Title`, `Legend`                           |
+| `Item`          | `/api/items`          | `Description`                               |
+| `Location`      | `/api/locations`      | `Description`                               |
+| `Nebula`        | `/api/nebulae`        | `Description`                               |
+| `OuterGod`      | `/api/outer-gods`     | `Description`                               |
+| `Scenario`      | `/api/scenarios`      | `Title`, `Conditions`, `Rewards`, `Penalty` |
+| `Skill`         | `/api/skills`         | `Effect`                                    |
+| `Stigma`        | `/api/stigmas`        | `Effect`                                    |
+| `Worldline`     | `/api/worldlines`     | `Description`                               |
 
 
 **Write endpoints (POST/PUT/DELETE) are not yet exposed for these 16.** Add them by mirroring `CharactersController` per §5.2 when a write workflow is needed.
@@ -717,15 +718,15 @@ Removed from `ORVWiki.API/`: `WeatherForecast.cs`, `Controllers/WeatherForecastC
 Each phase shipped self-contained. The final solution is the union of all eight.
 
 
-| Phase                  | What it added                                                                                                                                                                                                                                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 — Foundation         | 3-project solution, EF Core/Npgsql, all 40 entities + relations + constraints, snake_case naming, initial migration                                                                                                                                                                                                           |
-| 2 — Auth               | `User`/`Role` endpoints, JWT with `current_chapter` claim, BCrypt password hashing, 3 cumulative role policies, `DbInitializer` role seeding, exception middleware                                                                                                                                                            |
-| 3 — Core wiki CRUD     | `IRepository<T>` generic + `Repository<T>` base, `PageRepository` and `CharacterRepository` with spoiler-aware queries, services + DTOs + validators, `PagesController` + `CharactersController`, pagination types                                                                                                            |
-| 4 — Spoiler system     | `SpoilerService` with `IsRevealed`/`EnsureRevealed` (page gate) + `RenderInline` (inline `[spoiler ch=N]` parser → server-enforced segments), `Character.Biography` switched from raw string to `RenderedContent`                                                                                                             |
-| 5 — Community features | Comments (threading + spoiler filter on `chapter_at_post` + soft delete), `CommentReaction` toggle (per-type unique), `Bookmark` toggle, `EditSuggestion` workflow with diff apply + notifications, `Notification` CRUD, `ForbiddenException` (403) added                                                                     |
-| 6 — Timeline           | `TimelineService` returning `{Worldlines, Events, Connections}` graph payload, optional `upToChapter` and `characterId` filters, dead-edge pruning                                                                                                                                                                            |
-| 7 — Polish             | Serilog structured logging + request logging, Scalar UI for OpenAPI with Bearer auth, `IMemoryCache` for popular pages with explicit invalidation, SignalR `NotificationsHub` + `INotificationPusher` abstraction, JWT-from-query for WebSocket upgrades, switched `EnqueueAsync` → `PublishAsync` (save-then-push semantics) |
+| Phase                  | What it added                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1 — Foundation         | 3-project solution, EF Core/Npgsql, all 40 entities + relations + constraints, snake_case naming, initial migration                                                                                                                                                                                                                                                            |
+| 2 — Auth               | `User`/`Role` endpoints, JWT with `current_chapter` claim, BCrypt password hashing, 3 cumulative role policies, `DbInitializer` role seeding, exception middleware                                                                                                                                                                                                             |
+| 3 — Core wiki CRUD     | `IRepository<T>` generic + `Repository<T>` base, `PageRepository` and `CharacterRepository` with spoiler-aware queries, services + DTOs + validators, `PagesController` + `CharactersController`, pagination types                                                                                                                                                             |
+| 4 — Spoiler system     | `SpoilerService` with `IsRevealed`/`EnsureRevealed` (page gate) + `RenderInline` (inline `[spoiler ch=N]` parser → server-enforced segments), `Character.Biography` switched from raw string to `RenderedContent`                                                                                                                                                              |
+| 5 — Community features | Comments (threading + spoiler filter on `chapter_at_post` + soft delete), `CommentReaction` toggle (per-type unique), `Bookmark` toggle, `EditSuggestion` workflow with diff apply + notifications, `Notification` CRUD, `ForbiddenException` (403) added                                                                                                                      |
+| 6 — Timeline           | `TimelineService` returning `{Worldlines, Events, Connections}` graph payload, optional `upToChapter` and `characterId` filters, dead-edge pruning                                                                                                                                                                                                                             |
+| 7 — Polish             | Serilog structured logging + request logging, Scalar UI for OpenAPI with Bearer auth, `IMemoryCache` for popular pages with explicit invalidation, SignalR `NotificationsHub` + `INotificationPusher` abstraction, JWT-from-query for WebSocket upgrades, switched `EnqueueAsync` → `PublishAsync` (save-then-push semantics)                                                  |
 | 8 — Universal spoilers | `IPagedEntity` marker + open-generic `PagedEntityRepository<T>` + abstract `PagedEntityReadService<T,TDto,TListItemDto>`. `Page.Title` and `Page.ShortDescription` switched from raw string to `RenderedContent`. 16 new read-only endpoints (`/api/arcs`, `/api/items`, `/api/stigmas`, …) — every visible string field across the wiki now respects `[spoiler ch=N]` markup. |
 
 
@@ -742,7 +743,7 @@ When picking this project back up, here's the minimum to know:
 - **Add a new read-only entity** = implement `IPagedEntity`, drop in a `PagedEntityReadService<T,TDto,TListItemDto>` subclass, register the service. The repo is open-generic — no per-entity registration. See §5.1.
 - **Add full CRUD** = mirror Character (Service + Repository + Controller + DTOs + Validators) and register in both DI extensions. See §5.2.
 - **Notifications** = inject `INotificationService`, call `PublishAsync(...)` after your own `SaveChanges` succeeds.
-- **`Attribute` entity needs a `using AttributeEntity = ...;` alias** when referenced alongside `using System;`. **`Dokkaebi` entity needs a `using DokkaebiEntity = ...;` alias** when its module's namespace is in scope (folder is named `Dokkaebis/` to reduce the chance of collision).
+- `**Attribute` entity needs a `using AttributeEntity = ...;` alias** when referenced alongside `using System;`. `**Dokkaebi` entity needs a `using DokkaebiEntity = ...;` alias** when its module's namespace is in scope (folder is named `Dokkaebis/` to reduce the chance of collision).
 - **Cache** lives only on `PageService.GetVisibleBySlugAsync`. Invalidate with `cache.Remove(PageCacheKeys.BySlug(slug))` after any write that changes Page fields.
 - **All exceptions in `Application/Common/Exceptions/`** are auto-mapped to status codes by `ExceptionHandlingMiddleware`.
 - **Migration command** uses `--project ORVWiki.Infrastructure --startup-project ORVWiki.API`.

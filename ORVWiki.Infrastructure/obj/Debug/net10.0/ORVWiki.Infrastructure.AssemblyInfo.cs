@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ORVWiki.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ed600bd86fb952d06b5097e2224f46277263d99c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+be185f2bbaa91c0a01eb7f911a5d38ce22b7b9ce")]
 [assembly: System.Reflection.AssemblyProductAttribute("ORVWiki.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ORVWiki.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

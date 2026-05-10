@@ -752,7 +752,7 @@ main.app{
 }
 .timeline-svg{display:block;min-width:100%}
 .tl-lane-header{font-family:var(--serif);font-size:.85rem;fill:var(--gold-bright);font-weight:600}
-.tl-lane-line{stroke:var(--border-bright);stroke-width:1;stroke-dasharray:4 4}
+.tl-lane-line{stroke:var(--border-bright);stroke-width:1.2;opacity:.5}
 .tl-event{cursor:pointer;transition:all .15s}
 .tl-event circle{fill:var(--panel-3);stroke:var(--gold-dim);stroke-width:1.5;transition:all .15s}
 .tl-event.major circle{fill:var(--gold);stroke:var(--gold-bright);stroke-width:2}
@@ -760,11 +760,10 @@ main.app{
 .tl-event:hover circle{r:8;fill:var(--gold-bright)}
 .tl-event-label{fill:var(--text-2);font-size:11px;font-family:var(--sans)}
 .tl-event:hover .tl-event-label{fill:var(--gold-bright)}
-.tl-conn{fill:none;stroke:var(--purple);stroke-width:1.2;opacity:.55;stroke-dasharray:3 3}
-.tl-conn.regression{stroke:var(--gold);opacity:.7}
-.tl-conn.causality{stroke:var(--cyan);opacity:.6}
-.tl-conn.migration{stroke:var(--purple);opacity:.7;stroke-dasharray:none}
-.tl-conn.prophecy{stroke:var(--crimson);opacity:.6}
+.tl-jump{fill:none;stroke:var(--purple);stroke-width:1.6;opacity:.7;cursor:pointer;transition:opacity .15s,stroke-width .15s}
+.tl-jump:hover{opacity:1;stroke-width:2.4}
+.tl-jump-tip{stroke:var(--space);stroke-width:1}
+.tl-jump-swatch{display:inline-block;width:22px;height:2px;border-radius:1px;background:linear-gradient(90deg,var(--gold),var(--purple))}
 .tl-axis-label{fill:var(--text-3);font-size:10px;font-family:var(--mono)}
 .tl-legend{
   display:flex;gap:1.2rem;flex-wrap:wrap;
