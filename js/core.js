@@ -11,13 +11,20 @@ const State = {
   //   localhost (docker)  → '' (relative; nginx reverse-proxies /api & /hubs)
   //   anywhere else       → window.ORV_API_BASE from js/config.js
   //                          (GitHub Pages, Cloudflare, custom domain, …)
-  // localStorage always wins, so the in-app Settings dialog can override.
+  // localStorage overrides the default — EXCEPT when a stale localhost URL
+  // is saved and we're on a non-local origin. That happens when a user
+  // tested locally then opened the public site: their browser still has
+  // `orv.apiBase = https://localhost:7138` and the site can't reach it.
   apiBase: (() => {
-    const stored = localStorage.getItem('orv.apiBase');
-    if (stored !== null) return stored;
     const h = location.hostname;
+    const isLocalOrigin = location.protocol === 'file:'
+      || h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0';
+    const stored = localStorage.getItem('orv.apiBase');
+    const storedLooksLocal = stored && /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)/.test(stored);
+
+    if (stored !== null && !(storedLooksLocal && !isLocalOrigin)) return stored;
     if (location.protocol === 'file:') return 'https://localhost:7138';
-    if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return '';
+    if (isLocalOrigin) return '';
     return window.ORV_API_BASE || '';
   })(),
   ignoreSpoilers: localStorage.getItem('orv.ignoreSpoilers') === '1',
