@@ -1,0 +1,19 @@
+# Claude Code session worktrees — local-only, not for the repo.
+.claude/worktrees/
+
+# .NET build output
+**/bin/
+**/obj/
+
+# IDE state
+.idea/
+.vs/
+.vscode/
+
+# OS junk
+.DS_Store
+
+# Local env / secrets
+.env
+.env.local
+**/appsettings.Local.json
