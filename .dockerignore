@@ -1,0 +1,26 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/.git/
+**/.gitignore
+**/.dockerignore
+**/Dockerfile*
+**/docker-compose*.yml
+**/*.user
+**/*.suo
+**/node_modules/
+**/.DS_Store
+.claude/
+.idea/
+
+# Note: frontend assets (js/, styles.css, orv-wiki-frontend.html) are NOT
+# excluded — the web image (docker/web/Dockerfile) shares this context and
+# needs them. The API stage only restores csproj files so frontend bytes
+# never make it into the runtime image anyway.
+
+# Local secrets / settings
+**/appsettings.Local.json
+.env
+.env.local

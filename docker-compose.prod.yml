@@ -1,0 +1,61 @@
+# Production / handoff compose file.
+#
+# Pulls pre-built images from GitHub Container Registry instead of building
+# them locally. The recipient does NOT need the source code — they only need
+# this file (and Docker).
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+# Then open http://localhost:8080
+#
+# If the packages are private, the recipient must `docker login ghcr.io` with
+# a token that has `read:packages`. Public packages need no login.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: orv-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-orv_wiki}
+      POSTGRES_USER: ${POSTGRES_USER:-orv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orv}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orv} -d ${POSTGRES_DB:-orv_wiki}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: ghcr.io/medardwork/orv-api:latest
+    container_name: orv-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=${POSTGRES_DB:-orv_wiki};Username=${POSTGRES_USER:-orv};Password=${POSTGRES_PASSWORD:-orv}"
+      Jwt__Issuer: orv-wiki
+      Jwt__Audience: orv-wiki-clients
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-REPLACE_WITH_AT_LEAST_32_CHARS_LONG_SECRET_KEY_FOR_HMAC_SHA256}
+      Jwt__AccessTokenMinutes: "60"
+    ports:
+      - "5080:8080"
+
+  web:
+    image: ghcr.io/medardwork/orv-web:latest
+    container_name: orv-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
