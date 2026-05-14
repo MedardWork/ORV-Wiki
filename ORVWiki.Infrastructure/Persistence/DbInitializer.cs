@@ -16,6 +16,10 @@ public static class DbInitializer
         await db.Database.MigrateAsync(ct);
         await SeedRolesAsync(db, ct);
         await Arc01_ThreeWaysToSurvive.SeedAsync(db, ct);
+        // Backbone runs after Arc01 because it looks up the 1863rd / 1864th
+        // worldline rows Arc01 creates, and adds the 0th / 1865th rows plus
+        // the canonical worldline-to-worldline jumps.
+        await Backbone_WorldlineJumps.SeedAsync(db, ct);
     }
 
     private static async Task SeedRolesAsync(AppDbContext db, CancellationToken ct)

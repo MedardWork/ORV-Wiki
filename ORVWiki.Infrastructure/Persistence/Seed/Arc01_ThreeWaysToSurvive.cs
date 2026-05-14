@@ -55,7 +55,11 @@ internal static class Arc01_ThreeWaysToSurvive
                 "carriage 3807. The 1864th iteration of the *Three Ways to Survive in a Ruined World* " +
                 "timeline — the result of more than a thousand prior regressions, each ending in the " +
                 "death of the protagonist and the rewinding of the scenarios to their start.[/spoiler]",
-            color: "#1F2937", displayOrder: 2,
+            // Gold to match the wiki's protagonist accent — and so the main
+            // lane reads as the dominant horizontal on the canvas. The earlier
+            // dark-grey (#1F2937) was effectively invisible on the dark
+            // canvas background.
+            color: "#F0C674", displayOrder: 2,
             ct: ct);
 
         var prevLine = await UpsertWorldlineAsync(db,
@@ -65,7 +69,7 @@ internal static class Arc01_ThreeWaysToSurvive
                 "[spoiler ch=266]The immediately preceding regression. The worldline followed by the " +
                 "canonical text of *Ways of Survival* — i.e. the version Kim Dokja read for ten years. " +
                 "Yoo Junghyuk's memories at the start of the 1864th round are inherited from this line.[/spoiler]",
-            color: "#3B82F6", displayOrder: 1,
+            color: "#60A5FA", displayOrder: 1,
             ct: ct);
         // Regression chain: 1864 ← 1863
         var mainLineEntity = db.Worldlines.Find(mainLine.Id);
@@ -903,7 +907,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev1 = await UpsertEventAsync(db,
             slug: "ev-novel-completes",
             title: "Ways of Survival completes its run",
-            chapterNumber: 1, importance: EventImportance.Pivotal,
+            chapterNumber: 1, importance: EventImportance.Minor,
             description:
                 "After more than a decade, *Three Ways to Survive in a Ruined World* posts its 3,149th " +
                 "chapter. Kim Dokja submits a recommendation; tls123 messages him a thank-you and sends " +
@@ -915,7 +919,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev2 = await UpsertEventAsync(db,
             slug: "ev-bihyung-opens-channel",
             title: "Bihyung opens channel #BI-7623 above carriage 3807",
-            chapterNumber: 3, importance: EventImportance.Pivotal,
+            chapterNumber: 3, importance: EventImportance.Minor,
             description:
                 "Bihyung the dokkaebi enters carriage 3807 at 7 p.m., the moment monetisation begins. " +
                 "When passengers protest, he bursts their heads — the first deaths in the new world for " +
@@ -927,7 +931,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev3 = await UpsertEventAsync(db,
             slug: "ev-dokja-receives-attribute",
             title: "Kim Dokja receives his exclusive attribute and skill slot",
-            chapterNumber: 5, importance: EventImportance.Pivotal,
+            chapterNumber: 5, importance: EventImportance.Minor,
             description:
                 "Kim Dokja runs the gift file from tls123. He receives an exclusive attribute (whose " +
                 "window he cannot open) and an exclusive skill slot. Reading speed sharply increases.",
@@ -937,7 +941,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev4 = await UpsertEventAsync(db,
             slug: "ev-namwoon-killed",
             title: "Kim Dokja kills Kim Namwoon",
-            chapterNumber: 6, importance: EventImportance.Major,
+            chapterNumber: 6, importance: EventImportance.Minor,
             description:
                 "To break the murderer scenario without sacrificing Yoo Sangah or Lee Gilyoung, Kim " +
                 "Dokja stabs Kim Namwoon with the Swiss Army knife. Two constellations turn hostile; " +
@@ -949,7 +953,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev5 = await UpsertEventAsync(db,
             slug: "ev-junghyuk-encounter",
             title: "First encounter with Yoo Junghyuk",
-            chapterNumber: 9, importance: EventImportance.Pivotal,
+            chapterNumber: 9, importance: EventImportance.Minor,
             description:
                 "Yoo Junghyuk emerges from carriage 3707 onto Dongho Bridge to clear the demonic-person " +
                 "horde. Kim Dokja sees the protagonist of *Ways of Survival* in the flesh for the first " +
@@ -961,7 +965,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev6 = await UpsertEventAsync(db,
             slug: "ev-myungoh-abducts-sangah",
             title: "Han Myungoh abducts Yoo Sangah",
-            chapterNumber: 10, importance: EventImportance.Major,
+            chapterNumber: 10, importance: EventImportance.Minor,
             description:
                 "Granted the *One-legged Swift Horse* stigma by the Lame Trickster, Han Myungoh carries " +
                 "the protesting Yoo Sangah across Dongho Bridge at sprinter speed and disappears toward " +
@@ -973,7 +977,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev7 = await UpsertEventAsync(db,
             slug: "ev-leap-into-ichthyosaur",
             title: "Kim Dokja leaps into the ichthyosaur",
-            chapterNumber: 11, importance: EventImportance.Pivotal,
+            chapterNumber: 11, importance: EventImportance.Minor,
             description:
                 "To open the hidden scenario *Slay the Ichthyosaur from Within*, Kim Dokja drinks " +
                 "hammer-seahorse mucus and jumps from Dongho Bridge into the open mouth of an " +
@@ -984,7 +988,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev8 = await UpsertEventAsync(db,
             slug: "ev-ichthyosaur-slain",
             title: "Hidden scenario cleared: ichthyosaur slain from within",
-            chapterNumber: 15, importance: EventImportance.Major,
+            chapterNumber: 15, importance: EventImportance.Minor,
             description:
                 "After four days inside the beast Kim Dokja kills it with the stone hog's thorn, " +
                 "claiming 9,000 coins, a 1,000-coin first-clear bonus, and a permanent rise in his " +
@@ -996,7 +1000,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev9 = await UpsertEventAsync(db,
             slug: "ev-dark-keeper-appears",
             title: "The Dark Keeper appears in Dark Root",
-            chapterNumber: 22, importance: EventImportance.Major,
+            chapterNumber: 22, importance: EventImportance.Minor,
             description:
                 "Kim Dokja exposes Han Myungoh as the bicycle thief and throws his last stone-hog " +
                 "thorn into the dark, drawing the boss-class Dark Keeper from the deepest part of " +
@@ -1010,7 +1014,7 @@ internal static class Arc01_ThreeWaysToSurvive
         var ev10 = await UpsertEventAsync(db,
             slug: "ev-arc1-clear",
             title: "Episode 1 of the new world clears",
-            chapterNumber: 23, importance: EventImportance.Pivotal,
+            chapterNumber: 23, importance: EventImportance.Minor,
             description:
                 "The Dark Keeper falls. Bihyung confirms the path forward to the next scenario region. " +
                 "The first arc of Kim Dokja's altered *Ways of Survival* closes with five passengers " +

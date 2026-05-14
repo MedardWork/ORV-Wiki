@@ -5,8 +5,12 @@
 ============================================================ */
 const State = {
   // Persisted preferences are loaded from localStorage on first paint and
-  // re-saved whenever they change (see savePrefs()).
-  apiBase: localStorage.getItem('orv.apiBase') || 'https://localhost:7138',
+  // re-saved whenever they change (see savePrefs()). When served from a real
+  // origin (docker stack, hosted), default to same-origin so nginx's reverse
+  // proxy handles /api and /hubs. When opened from disk (file://), fall back
+  // to the local Kestrel dev URL.
+  apiBase: localStorage.getItem('orv.apiBase')
+    ?? (location.protocol === 'file:' ? 'https://localhost:7138' : ''),
   ignoreSpoilers: localStorage.getItem('orv.ignoreSpoilers') === '1',
   token: null,
   user: null,

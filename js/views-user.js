@@ -132,26 +132,45 @@ function suggestionsList(items, asReviewer=false) {
 async function renderTimeline() {
   const app = $('#app');
   app.innerHTML = '';
-  const v = el('div', { class:'view' });
-  v.appendChild(crumbs([['', 'Archive'], [null, 'Timeline']]));
-  v.appendChild(el('div', { class:'detail-header' },
-    el('div', { class:'type' }, '∞  3D Timeline'),
-    el('h1', {}, 'The Worldlines'),
-    el('div', { class:'summary' }, 'Parallel regression chains plotted against story chapter, with cross-line connections. ⚠ The timeline is inherently spoiler-rich. Use the chapter cap below to self-impose limits.'),
-  ));
+  // Tag the document so .timeline-active CSS can break the timeline view out
+  // of the centred 1400px content column and give it the full viewport.
+  document.body.classList.add('timeline-active');
+  const v = el('div', { class:'view view-timeline' });
 
-  const chapCapIn = el('input', { type:'number', placeholder:'all', min:'1', style:{ width:'90px' }, value: State.user?.currentChapter ?? '' });
-  const charIdIn  = el('input', { type:'number', placeholder:'(optional)', min:'1', style:{ width:'120px' }});
-  const reload = () => loadAndRender();
-  v.appendChild(el('div', { class:'timeline-controls' },
-    el('label', {}, 'Chapter cap'), chapCapIn,
-    el('label', { style:{ marginLeft:'.6rem' }}, 'Filter by character ID'), charIdIn,
-    el('button', { class:'btn btn-secondary btn-sm', onclick:reload }, 'Apply'),
-    el('button', { class:'btn btn-ghost btn-sm', onclick:() => { chapCapIn.value=''; charIdIn.value=''; reload(); }}, 'Reset'),
+  // Compact titlebar — eyebrow + h1 + spoiler hint on a single row, so the
+  // canvas below gets the lion's share of the viewport. No filter controls:
+  // the timeline is the page, not a tool you tweak.
+  v.appendChild(el('header', { class:'tl-titlebar' },
+    el('div', { class:'tl-titlebar-left' },
+      el('span', { class:'tl-eyebrow' }, '∞  Chronological Timeline'),
+      el('h1', { class:'tl-h1' }, 'The Worldlines'),
+    ),
   ));
 
   const canvasWrap = el('div', { class:'timeline-canvas', id:'tl-canvas' });
-  const legend = el('div', { class:'tl-legend' },
+
+  // Spoiler gate — full-canvas overlay. The reader must click "I understand"
+  // to reveal the timeline beneath. We render it absolutely positioned
+  // inside the canvas wrapper so it covers the lanes/jumps but lets the
+  // titlebar and legend stay visible — the warning is *about* the canvas,
+  // not the page chrome. Dismissed per-mount (re-shows on every visit) so
+  // returning readers always re-confirm before seeing late-novel reveals.
+  const spoilerGate = el('div', { class:'tl-spoiler-gate' },
+    el('div', { class:'tl-spoiler-gate-content' },
+      el('div', { class:'tl-spoiler-icon' }, '⚠'),
+      el('h2', { class:'tl-spoiler-title' }, 'SPOILER-RICH ZONE'),
+      el('p', { class:'tl-spoiler-body' },
+        'This timeline maps the full regression chain end-to-end. It includes ' +
+        'reveals from the final arcs and epilogues. If you are still reading, ' +
+        'turn back now.',
+      ),
+      el('button', {
+        class:'btn tl-spoiler-confirm',
+        onclick:() => spoilerGate.remove(),
+      }, 'I understand · Reveal the timeline'),
+    ),
+  );
+  const legend = el('footer', { class:'tl-legend' },
     el('span', { class:'tl-legend-item' }, el('span', { class:'tl-legend-swatch tl-jump-swatch' }), 'Worldline jump (color = source line)'),
     el('span', { class:'tl-legend-item' }, el('span', { style:{ display:'inline-block', width:10, height:10, borderRadius:'50%', background:'var(--gold-bright)', boxShadow:'0 0 6px var(--gold-glow)' }}), 'Pivotal event'),
     el('span', { class:'tl-legend-item' }, el('span', { style:{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'var(--gold)' }}), 'Major event'),
@@ -161,18 +180,26 @@ async function renderTimeline() {
   v.appendChild(legend);
   app.appendChild(v);
 
-  async function loadAndRender() {
-    canvasWrap.innerHTML = '<div class="loader"><div class="loader-spinner"></div></div>';
-    let qs = [];
-    if (chapCapIn.value) qs.push('upToChapter='+parseInt(chapCapIn.value));
-    if (charIdIn.value) qs.push('characterId='+parseInt(charIdIn.value));
-    const url = '/api/timeline' + (qs.length ? '?' + qs.join('&') : '');
-    try {
-      const data = await api.get(url);
-      drawTimeline(canvasWrap, data);
-    } catch (e) { canvasWrap.innerHTML = ''; canvasWrap.appendChild(errorBlock(e)); }
-  }
-  loadAndRender();
+  // Cleanup: drop the body class when the user navigates away from the
+  // timeline view, so subsequent pages get the normal centred layout back.
+  // The router calls innerHTML='' on #app before rendering anywhere else,
+  // and a MutationObserver catches that swap.
+  const obs = new MutationObserver(() => {
+    if (!document.body.contains(v)) {
+      document.body.classList.remove('timeline-active');
+      obs.disconnect();
+    }
+  });
+  obs.observe(app, { childList:true });
+
+  canvasWrap.innerHTML = '<div class="loader"><div class="loader-spinner"></div></div>';
+  try {
+    const data = await api.get('/api/timeline');
+    drawTimeline(canvasWrap, data);
+    // Mount the gate AFTER drawTimeline (which calls innerHTML='' on host
+    // and would otherwise wipe the gate). It sits on top of the SVG.
+    canvasWrap.appendChild(spoilerGate);
+  } catch (e) { canvasWrap.innerHTML = ''; canvasWrap.appendChild(errorBlock(e)); }
 }
 
 function drawTimeline(host, data) {
@@ -203,9 +230,15 @@ function drawTimeline(host, data) {
     chapter: e.chapterNumber ?? e.chapter_number ?? e.ChapterNumber ?? 1,
     worldlineId: e.worldlineId ?? e.worldline_id ?? e.WorldlineId,
     importance: (e.importance ?? e.Importance ?? 'minor').toLowerCase(),
+    // EventOrder is a within-chapter tiebreaker (1, 2, …), NOT the X axis
+    // coordinate. ChapterNumber is the timeline position. We mix them at a
+    // small fractional weight so multiple events sharing the same chapter
+    // splay out instead of stacking, while staying close enough to that
+    // chapter's tick to still read as "ch N".
     order: e.eventOrder ?? e.event_order ?? e.EventOrder ?? null,
     lengthEstimate: e.lengthEstimate ?? e.length_estimate ?? e.LengthEstimate ?? null,
   }));
+  const evX = e => (e.chapter ?? 1) + ((e.order ?? 1) - 1) * 0.15;
   const jps = jumps.map(j => ({
     id: j.id ?? j.Id,
     characterLabel: j.characterLabel ?? j.character_label ?? j.CharacterLabel ?? '',
@@ -217,15 +250,21 @@ function drawTimeline(host, data) {
     tgtOrder: j.targetOrder ?? j.target_order ?? j.TargetOrder ?? 0,
   }));
 
+  // Minor events clutter the lanes; the timeline is curated for major/pivotal
+  // anchors (and jumps). Minor events still exist as data for their own pages.
+  const visibleEvs = evs.filter(e => e.importance !== 'minor');
+
   const ORPHAN_ID = '__orphan__';
-  if (evs.some(e => !e.worldlineId)) {
+  if (visibleEvs.some(e => !e.worldlineId)) {
     wls.push({ id: ORPHAN_ID, line: '?', name: 'Unassigned', isMain:false, color:'#3d4670', order:9999 });
   }
 
-  // Shared X scale across all order values (events + jumps).
-  // Lets jumps stay directionally consistent with the editor's chosen units.
+  // Shared X scale: chapter-axis. Events sit at their chapter position
+  // (with a small EventOrder splay to separate same-chapter events).
+  // Jumps already publish source/target orders in chapter units, so the
+  // two slot into the same scale without conversion.
   const allOrders = [
-    ...evs.filter(e => e.order != null).map(e => e.order),
+    ...visibleEvs.map(e => evX(e)),
     ...jps.map(j => j.srcOrder),
     ...jps.map(j => j.tgtOrder),
   ];
@@ -233,10 +272,16 @@ function drawTimeline(host, data) {
   const maxOrder = allOrders.length ? Math.max(10, ...allOrders) : 10;
   const orderRange = Math.max(1, maxOrder - minOrder);
 
-  // Horizontal-lane layout
-  const padTop = 60, padBot = 60, padLeft = 200, padRight = 60;
-  const laneH  = 90;
-  const innerW = Math.max(800, orderRange * 80);
+  // Horizontal-lane layout. The canvas fits exactly to the host viewport
+  // — no horizontal scroll. With a curated timeline (a handful of jumps,
+  // not every chapter) compressing the chapter axis to a single screen
+  // gives a far more readable overview than a wide canvas you have to
+  // pan around to see in full. Lane height stays generous so cross-lane
+  // arcs still have vertical room to bow without clipping labels.
+  const padTop = 50, padBot = 50, padLeft = 220, padRight = 80;
+  const laneH  = 160;
+  const hostW  = Math.max(800, host.clientWidth - 32);
+  const innerW = Math.max(600, hostW - padLeft - padRight);
   const innerH = wls.length * laneH;
   const totalW = padLeft + innerW + padRight;
   const totalH = padTop + innerH + padBot;
@@ -269,15 +314,19 @@ function drawTimeline(host, data) {
     svg.appendChild(tick);
   }
 
-  // Lanes (horizontal lines + labels)
+  // Lanes (horizontal lines + labels). Per-row stroke colour is set via
+  // `element.style.stroke = ...` rather than `setAttribute('stroke', ...)`:
+  // CSS class rules (`.tl-lane-line { stroke: ... }`) outrank SVG
+  // presentation attributes set with setAttribute, but they DO lose to
+  // inline styles, so this is the only path that lets the per-worldline
+  // colour actually paint the lane.
   wls.forEach((w, i) => {
     const y = yForLane(i);
     const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     ln.setAttribute('x1', padLeft); ln.setAttribute('x2', padLeft + innerW);
     ln.setAttribute('y1', y); ln.setAttribute('y2', y);
-    ln.setAttribute('class', 'tl-lane-line');
-    if (w.color) ln.setAttribute('stroke', w.color);
-    if (w.isMain) ln.setAttribute('stroke-width', '2');
+    ln.setAttribute('class', 'tl-lane-line' + (w.isMain ? ' is-main' : ''));
+    if (w.color) ln.style.stroke = w.color;
     svg.appendChild(ln);
 
     const sw = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -302,6 +351,23 @@ function drawTimeline(host, data) {
     }
   });
 
+  // Group jumps by source→target lane pair. When two or more jumps share
+  // the same lane pair (e.g. both regressions out of 1863rd into 1864th)
+  // their endpoints are close enough that without staggering they render
+  // as one arc with two labels stacked on top of each other. We push each
+  // sibling further out from the straight line and lift its label more,
+  // so they read as distinct curves with distinct labels.
+  const jumpPairIdx = new Map();
+  {
+    const seen = new Map();
+    jps.forEach(j => {
+      const key = j.srcWl + '→' + j.tgtWl;
+      const i = seen.get(key) ?? 0;
+      jumpPairIdx.set(j.id, i);
+      seen.set(key, i + 1);
+    });
+  }
+
   // Jumps (under events; bowed slightly perpendicular to the line so crossing
   // paths separate visually instead of stacking into one straight blob)
   jps.forEach(j => {
@@ -311,7 +377,13 @@ function drawTimeline(host, data) {
     const x2 = xFor(j.tgtOrder), y2 = yForLane(tgtIdx);
     const dx = x2 - x1, dy = y2 - y1;
     const len = Math.sqrt(dx*dx + dy*dy) || 1;
-    const offset = 18;
+    const siblingIdx = jumpPairIdx.get(j.id) || 0;
+    // Bow proportional to arc length so a regression jump that spans the
+    // whole lane reads as a curve, not a straight line. Capped so short
+    // arcs don't collapse and very long ones don't balloon off the lane
+    // band. Extra magnitude per sibling so co-located jumps fan apart.
+    const baseOffset = Math.min(80, Math.max(18, len * 0.04));
+    const offset = baseOffset + siblingIdx * 36;
     const cx = (x1 + x2) / 2 + (-dy / len) * offset;
     const cy = (y1 + y2) / 2 + ( dx / len) * offset;
 
@@ -319,7 +391,9 @@ function drawTimeline(host, data) {
     path.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
     path.setAttribute('class', 'tl-jump');
     const srcWl = wls[srcIdx];
-    if (srcWl.color) path.setAttribute('stroke', srcWl.color);
+    // Inline style required so the source-lane colour beats the CSS default
+    // (`stroke: var(--purple)`); see the lane-line block above for the rule.
+    if (srcWl.color) path.style.stroke = srcWl.color;
     path.addEventListener('mouseenter', ev => showJumpTooltip(ev, j));
     path.addEventListener('mouseleave', hideTooltip);
     path.addEventListener('mousemove', ev => moveTooltip(ev));
@@ -329,15 +403,42 @@ function drawTimeline(host, data) {
     tip.setAttribute('cx', x2); tip.setAttribute('cy', y2);
     tip.setAttribute('r', 3);
     tip.setAttribute('class', 'tl-jump-tip');
-    if (srcWl.color) tip.setAttribute('fill', srcWl.color);
+    if (srcWl.color) tip.style.fill = srcWl.color;
     svg.appendChild(tip);
+
+    // Character label always above the arc midpoint. For a quadratic Bezier
+    // the visual midpoint at t=0.5 is 0.25*P0 + 0.5*P1 + 0.25*P2 — not the
+    // straight-line midpoint between the endpoints — so use that point and
+    // lift the label 10 px above it on the canvas (smaller y = up in SVG).
+    if (j.characterLabel) {
+      const mx = 0.25 * x1 + 0.5 * cx + 0.25 * x2;
+      const my = 0.25 * y1 + 0.5 * cy + 0.25 * y2;
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      // Lift labels of siblings progressively higher so co-located jumps
+      // get distinct label slots — each step is slightly more than one
+      // text line-height (11 px font + 3 px room).
+      t.setAttribute('x', mx); t.setAttribute('y', my - 10 - siblingIdx * 16);
+      t.setAttribute('class', 'tl-jump-label');
+      t.setAttribute('text-anchor', 'middle');
+      // Inline style for the same CSS-precedence reason as the lane lines.
+      if (srcWl.color) t.style.fill = srcWl.color;
+      const label = j.characterLabel.length > 36
+        ? j.characterLabel.slice(0, 34) + '…'
+        : j.characterLabel;
+      t.textContent = label;
+      // Tooltip on the label too — users instinctively hover the text.
+      t.addEventListener('mouseenter', ev => showJumpTooltip(ev, j));
+      t.addEventListener('mouseleave', hideTooltip);
+      t.addEventListener('mousemove', ev => moveTooltip(ev));
+      svg.appendChild(t);
+    }
   });
 
   // Events (drawn last so they sit above jumps and lane lines)
-  evs.forEach(e => {
+  visibleEvs.forEach(e => {
     const li = laneIdx(e.worldlineId || ORPHAN_ID);
     if (li === -1) return;
-    const x = xFor(e.order ?? minOrder), y = yForLane(li);
+    const x = xFor(evX(e)), y = yForLane(li);
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('class', 'tl-event ' + e.importance);
     g.setAttribute('transform', `translate(${x},${y})`);

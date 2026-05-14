@@ -9,6 +9,10 @@ namespace ORVWiki.Infrastructure.Persistence.Seed;
 /// <summary>
 /// Idempotent upsert helpers keyed by natural identifiers (slug, name, line_number…).
 /// Re-running the seeder must not create duplicates and must not fail.
+///
+/// Each Upsert* helper persists on BOTH branches: insert (so the row gets an
+/// Id available to subsequent FK calls) and update (so field changes on
+/// existing rows actually reach the DB instead of dying with the DbContext).
 /// </summary>
 internal static class SeedHelpers
 {
@@ -35,7 +39,6 @@ internal static class SeedHelpers
                 ShortDescription = shortDescription,
             };
             db.Pages.Add(page);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -44,6 +47,7 @@ internal static class SeedHelpers
             page.DiscoveryChapter = discoveryChapter;
             page.ShortDescription = shortDescription;
         }
+        await db.SaveChangesAsync(ct);
         return page;
     }
 
@@ -64,13 +68,13 @@ internal static class SeedHelpers
                 ChapterStart = chapterStart, ChapterEnd = chapterEnd, Summary = summary,
             };
             db.Arcs.Add(arc);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
             arc.Name = name; arc.OrderNumber = orderNumber;
             arc.ChapterStart = chapterStart; arc.ChapterEnd = chapterEnd; arc.Summary = summary;
         }
+        await db.SaveChangesAsync(ct);
         return arc;
     }
 
@@ -86,12 +90,12 @@ internal static class SeedHelpers
                 ChapterNumber = chapterNumber, Title = title, ArcId = arcId, Summary = summary,
             };
             db.Chapters.Add(ch);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
             ch.Title = title; ch.ArcId = arcId; ch.Summary = summary;
         }
+        await db.SaveChangesAsync(ct);
         return ch;
     }
 
@@ -107,13 +111,13 @@ internal static class SeedHelpers
             c = new Character { PageId = page.Id, FullName = fullName };
             configure(c);
             db.Characters.Add(c);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
             c.FullName = fullName;
             configure(c);
         }
+        await db.SaveChangesAsync(ct);
         return c;
     }
 
@@ -134,7 +138,6 @@ internal static class SeedHelpers
                 OriginCharacterId = originCharacterId, NebulaId = nebulaId,
             };
             db.Constellations.Add(c);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -142,6 +145,7 @@ internal static class SeedHelpers
             c.Description = description; c.OriginCharacterId = originCharacterId;
             c.NebulaId = nebulaId;
         }
+        await db.SaveChangesAsync(ct);
         return c;
     }
 
@@ -160,12 +164,12 @@ internal static class SeedHelpers
                 ChannelId = channelId, Speciality = speciality,
             };
             db.Dokkaebi.Add(d);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
             d.Name = name; d.Rank = rank; d.ChannelId = channelId; d.Speciality = speciality;
         }
+        await db.SaveChangesAsync(ct);
         return d;
     }
 
@@ -184,7 +188,6 @@ internal static class SeedHelpers
                 ProviderConstellationId = providerConstellationId, ActivationCost = activationCost,
             };
             db.Stigmas.Add(s);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -192,6 +195,7 @@ internal static class SeedHelpers
             s.ProviderConstellationId = providerConstellationId;
             s.ActivationCost = activationCost;
         }
+        await db.SaveChangesAsync(ct);
         return s;
     }
 
@@ -205,9 +209,9 @@ internal static class SeedHelpers
         {
             a = new AttributeEntity { PageId = page.Id, Name = name, Rarity = rarity, Effect = effect };
             db.Attributes.Add(a);
-            await db.SaveChangesAsync(ct);
         }
         else { a.Name = name; a.Rarity = rarity; a.Effect = effect; }
+        await db.SaveChangesAsync(ct);
         return a;
     }
 
@@ -226,13 +230,13 @@ internal static class SeedHelpers
                 CostInCoins = costInCoins, MaxLevel = maxLevel,
             };
             db.Skills.Add(s);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
             s.Name = name; s.SkillType = type; s.Effect = effect;
             s.CostInCoins = costInCoins; s.MaxLevel = maxLevel;
         }
+        await db.SaveChangesAsync(ct);
         return s;
     }
 
@@ -251,12 +255,12 @@ internal static class SeedHelpers
                 Description = description, IsStarRelic = isStarRelic,
             };
             db.Items.Add(i);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
             i.Name = name; i.ItemGrade = grade; i.Description = description; i.IsStarRelic = isStarRelic;
         }
+        await db.SaveChangesAsync(ct);
         return i;
     }
 
@@ -276,7 +280,6 @@ internal static class SeedHelpers
                 Description = description,
             };
             db.Locations.Add(l);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -284,6 +287,7 @@ internal static class SeedHelpers
             l.WorldlineId = worldlineId; l.ParentLocationId = parentLocationId;
             l.Description = description;
         }
+        await db.SaveChangesAsync(ct);
         return l;
     }
 
@@ -305,7 +309,6 @@ internal static class SeedHelpers
                 Color = color, DisplayOrder = displayOrder,
             };
             db.Worldlines.Add(w);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -313,6 +316,7 @@ internal static class SeedHelpers
             w.Description = description; w.ParentWorldlineId = parentWorldlineId;
             w.Color = color; w.DisplayOrder = displayOrder;
         }
+        await db.SaveChangesAsync(ct);
         return w;
     }
 
@@ -333,7 +337,6 @@ internal static class SeedHelpers
                 Conditions = conditions, Rewards = rewards, Penalty = penalty,
             };
             db.Scenarios.Add(s);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -341,6 +344,7 @@ internal static class SeedHelpers
             s.ChapterStart = chapterStart; s.ChapterEnd = chapterEnd;
             s.Conditions = conditions; s.Rewards = rewards; s.Penalty = penalty;
         }
+        await db.SaveChangesAsync(ct);
         return s;
     }
 
@@ -362,7 +366,6 @@ internal static class SeedHelpers
                 LengthEstimate = lengthEstimate,
             };
             db.Events.Add(e);
-            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -371,7 +374,51 @@ internal static class SeedHelpers
             e.EventOrder = eventOrder; e.LocationId = locationId; e.WorldlineId = worldlineId;
             e.LengthEstimate = lengthEstimate;
         }
+        await db.SaveChangesAsync(ct);
         return e;
+    }
+
+    public static async Task<Jump> UpsertJumpAsync(
+        AppDbContext db, string characterLabel,
+        long sourceWorldlineId, double sourceOrder,
+        long targetWorldlineId, double targetOrder,
+        string? description = null, string? lengthEstimate = null,
+        long? arcId = null, CancellationToken ct = default)
+    {
+        if (sourceWorldlineId == targetWorldlineId)
+            throw new ArgumentException(
+                "Jump.SourceWorldlineId and TargetWorldlineId must differ " +
+                "(enforced by ck_jump_cross_worldline).");
+
+        // Natural key: same character traversing the same source→target pair at
+        // the same source position. Re-running the seeder won't duplicate, but a
+        // distinct second jump (e.g. a return trip) gets a different SourceOrder
+        // and is treated as new.
+        var j = await db.Jumps.FirstOrDefaultAsync(x =>
+            x.CharacterLabel == characterLabel &&
+            x.SourceWorldlineId == sourceWorldlineId &&
+            x.TargetWorldlineId == targetWorldlineId &&
+            x.SourceOrder == sourceOrder, ct);
+
+        if (j is null)
+        {
+            j = new Jump
+            {
+                CharacterLabel = characterLabel,
+                Description = description, LengthEstimate = lengthEstimate,
+                SourceWorldlineId = sourceWorldlineId, SourceOrder = sourceOrder,
+                TargetWorldlineId = targetWorldlineId, TargetOrder = targetOrder,
+                ArcId = arcId,
+            };
+            db.Jumps.Add(j);
+        }
+        else
+        {
+            j.Description = description; j.LengthEstimate = lengthEstimate;
+            j.TargetOrder = targetOrder; j.ArcId = arcId;
+        }
+        await db.SaveChangesAsync(ct);
+        return j;
     }
 
     public static async Task<Concept> UpsertConceptAsync(
@@ -384,9 +431,9 @@ internal static class SeedHelpers
         {
             c = new Concept { PageId = page.Id, Name = name, Definition = definition, ImpactLevel = impact };
             db.Concepts.Add(c);
-            await db.SaveChangesAsync(ct);
         }
         else { c.Name = name; c.Definition = definition; c.ImpactLevel = impact; }
+        await db.SaveChangesAsync(ct);
         return c;
     }
 
@@ -398,9 +445,9 @@ internal static class SeedHelpers
         {
             t = new Tag { Slug = slug, Name = name, Color = color };
             db.Tags.Add(t);
-            await db.SaveChangesAsync(ct);
         }
         else { t.Name = name; t.Color = color; }
+        await db.SaveChangesAsync(ct);
         return t;
     }
 

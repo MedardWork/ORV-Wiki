@@ -732,27 +732,53 @@ main.app{
 .notif-item .time{font-size:.7rem;color:var(--text-3);margin-top:.3rem}
 
 /* Timeline */
-.timeline-controls{
-  display:flex;gap:1rem;align-items:center;flex-wrap:wrap;
-  margin-bottom:1.2rem;
-  background:var(--panel);border:1px solid var(--border);
-  border-radius:8px;padding:.8rem 1rem;
+/* While the timeline view is mounted we let it claim the full viewport
+   width and height. The default centred 1400px content column is too
+   narrow for a 5-worldline lane stack with cross-lane regression arcs. */
+body.timeline-active main.app{
+  max-width:none;
+  padding:0;
+  min-height:calc(100vh - 70px);
 }
-.timeline-controls label{font-size:.78rem;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em}
-.timeline-controls input,.timeline-controls select{
-  background:var(--space);border:1px solid var(--border);
-  color:var(--text);padding:.4rem .6rem;border-radius:5px;
-  font:inherit;font-size:.88rem;
+.view-timeline{
+  display:flex;flex-direction:column;
+  height:calc(100vh - 70px);
+  padding:0 1.25rem 1rem;
+  gap:.75rem;
 }
+.tl-titlebar{
+  display:flex;justify-content:space-between;align-items:baseline;
+  gap:1rem;flex-wrap:wrap;
+  padding:.9rem 0 .35rem;
+  border-bottom:1px solid var(--border);
+}
+.tl-titlebar-left{display:flex;align-items:baseline;gap:.9rem;flex-wrap:wrap}
+.tl-eyebrow{
+  font-family:var(--mono);font-size:.72rem;
+  color:var(--gold-bright);letter-spacing:.14em;text-transform:uppercase;
+  text-shadow:0 0 14px var(--gold-glow);
+}
+.tl-h1{
+  font-size:1.4rem;color:var(--gold);
+  margin:0;letter-spacing:.02em;
+}
+.tl-titlebar-right{font-size:.78rem;color:var(--text-3);font-style:italic}
+.tl-spoiler-warn{color:var(--text-3)}
 .timeline-canvas{
   background:linear-gradient(180deg,var(--space),var(--void));
   border:1px solid var(--border);border-radius:8px;
   padding:1rem;overflow:auto;
   position:relative;
+  flex:1;min-height:520px;
 }
 .timeline-svg{display:block;min-width:100%}
-.tl-lane-header{font-family:var(--serif);font-size:.85rem;fill:var(--gold-bright);font-weight:600}
-.tl-lane-line{stroke:var(--border-bright);stroke-width:1.2;opacity:.5}
+.tl-lane-header{font-family:var(--serif);font-size:.95rem;fill:var(--gold-bright);font-weight:600}
+/* Lane lines render in their worldline's seed color via an inline `stroke`
+   attribute (set per row in drawTimeline). The CSS sets only the fallback
+   colour (used when a lane has no color set) and the visual weight — the
+   opacity is high enough that the colour reads through clearly. */
+.tl-lane-line{stroke:var(--border-bright);stroke-width:3;opacity:.85;stroke-linecap:round}
+.tl-lane-line.is-main{stroke-width:4}
 .tl-event{cursor:pointer;transition:all .15s}
 .tl-event circle{fill:var(--panel-3);stroke:var(--gold-dim);stroke-width:1.5;transition:all .15s}
 .tl-event.major circle{fill:var(--gold);stroke:var(--gold-bright);stroke-width:2}
@@ -760,17 +786,78 @@ main.app{
 .tl-event:hover circle{r:8;fill:var(--gold-bright)}
 .tl-event-label{fill:var(--text-2);font-size:11px;font-family:var(--sans)}
 .tl-event:hover .tl-event-label{fill:var(--gold-bright)}
-.tl-jump{fill:none;stroke:var(--purple);stroke-width:1.6;opacity:.7;cursor:pointer;transition:opacity .15s,stroke-width .15s}
-.tl-jump:hover{opacity:1;stroke-width:2.4}
+.tl-jump{fill:none;stroke:var(--purple);stroke-width:1.8;opacity:.78;cursor:pointer;transition:opacity .15s,stroke-width .15s}
+.tl-jump:hover{opacity:1;stroke-width:2.6}
 .tl-jump-tip{stroke:var(--space);stroke-width:1}
+.tl-jump-label{
+  font-family:var(--sans);font-size:11px;font-weight:600;
+  fill:var(--purple);letter-spacing:.02em;
+  paint-order:stroke;stroke:var(--void);stroke-width:3px;stroke-linejoin:round;
+  cursor:pointer;pointer-events:auto;
+}
 .tl-jump-swatch{display:inline-block;width:22px;height:2px;border-radius:1px;background:linear-gradient(90deg,var(--gold),var(--purple))}
 .tl-axis-label{fill:var(--text-3);font-size:10px;font-family:var(--mono)}
+
+/* Spoiler gate — full-cover overlay on the canvas. Sits on top of the SVG
+   until the reader confirms with the button. position:absolute pins it to
+   the .timeline-canvas (which is position:relative). */
+.tl-spoiler-gate{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(8,10,20,.78);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  z-index:10;border-radius:8px;
+  animation:fadeIn .25s ease-out;
+}
+.tl-spoiler-gate-content{
+  max-width:560px;text-align:center;
+  padding:2rem 2.5rem;
+}
+.tl-spoiler-icon{
+  font-size:5rem;line-height:1;
+  color:#ef4444;
+  text-shadow:0 0 30px rgba(239,68,68,.55),0 0 60px rgba(239,68,68,.3);
+  margin-bottom:.6rem;
+  animation:spoilerPulse 2.4s ease-in-out infinite;
+}
+.tl-spoiler-title{
+  font-family:var(--serif);
+  font-size:2.2rem;font-weight:700;
+  color:#ef4444;
+  letter-spacing:.18em;
+  margin:0 0 1rem;
+  text-shadow:0 0 24px rgba(239,68,68,.45);
+}
+.tl-spoiler-body{
+  color:var(--text-2);
+  font-size:.95rem;line-height:1.55;
+  margin:0 0 1.6rem;
+}
+.tl-spoiler-confirm{
+  background:#ef4444;color:#fff;
+  border:1px solid #b91c1c;
+  padding:.7rem 1.4rem;font-weight:600;
+  font-size:.95rem;letter-spacing:.04em;
+  box-shadow:0 0 24px rgba(239,68,68,.35);
+  transition:background .15s,box-shadow .15s,transform .15s;
+}
+.tl-spoiler-confirm:hover{
+  background:#dc2626;
+  box-shadow:0 0 32px rgba(239,68,68,.55);
+  transform:translateY(-1px);
+}
+@keyframes spoilerPulse{
+  0%,100%{transform:scale(1);text-shadow:0 0 30px rgba(239,68,68,.55),0 0 60px rgba(239,68,68,.3)}
+  50%{transform:scale(1.06);text-shadow:0 0 38px rgba(239,68,68,.75),0 0 80px rgba(239,68,68,.4)}
+}
 .tl-legend{
-  display:flex;gap:1.2rem;flex-wrap:wrap;
+  display:flex;gap:1.2rem;flex-wrap:wrap;align-items:center;
   font-size:.78rem;color:var(--text-2);
-  margin-top:.8rem;padding:.6rem 1rem;
+  padding:.5rem .9rem;
   background:var(--panel);border:1px solid var(--border);
   border-radius:6px;
+  flex-shrink:0;
 }
 .tl-legend-item{display:inline-flex;align-items:center;gap:.4rem}
 .tl-legend-swatch{width:18px;height:2px;border-radius:1px}
