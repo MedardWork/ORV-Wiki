@@ -33,9 +33,11 @@ USER app
 
 COPY --from=build --chown=app:app /app/publish .
 
-ENV ASPNETCORE_URLS=http://+:8080 \
-    DOTNET_RUNNING_IN_CONTAINER=true \
+ENV DOTNET_RUNNING_IN_CONTAINER=true \
     DOTNET_NOLOGO=true
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "ORVWiki.API.dll"]
+# `--urls` picks up $PORT when Railway/Heroku/etc. inject it, and falls back
+# to 8080 for local docker-compose where PORT isn't set. `exec` keeps PID 1
+# on dotnet so signal handling and graceful shutdown still work.
+ENTRYPOINT ["/bin/sh", "-c", "exec dotnet ORVWiki.API.dll --urls=http://+:${PORT:-8080}"]

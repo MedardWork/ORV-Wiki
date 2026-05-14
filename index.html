@@ -52,6 +52,8 @@
   Script load order matters because these are plain <script> tags, not ES
   modules. Each file declares globals (functions, const State, api, …) that
   later files reference. Order:
+    config         — sets window.ORV_API_BASE (per-deployment); must be FIRST
+                     so core.js can read it during State initialization
     core           — State, ENTITY_TYPES, api, $, el, toast, openModal
     spoiler        — plainTextOf, hasContent, hasHidden, renderRendered,
                      renderedNode, spoilerBanner (used by views, comments,
@@ -68,6 +70,7 @@
                      time — must run after the elements above exist
     init           — kicks everything off; must be last
 -->
+<script src="js/config.js"></script>
 <script src="js/core.js"></script>
 <script src="js/spoiler.js"></script>
 <script src="js/chrome.js"></script>

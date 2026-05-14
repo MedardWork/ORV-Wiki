@@ -5,12 +5,21 @@
 ============================================================ */
 const State = {
   // Persisted preferences are loaded from localStorage on first paint and
-  // re-saved whenever they change (see savePrefs()). When served from a real
-  // origin (docker stack, hosted), default to same-origin so nginx's reverse
-  // proxy handles /api and /hubs. When opened from disk (file://), fall back
-  // to the local Kestrel dev URL.
-  apiBase: localStorage.getItem('orv.apiBase')
-    ?? (location.protocol === 'file:' ? 'https://localhost:7138' : ''),
+  // re-saved whenever they change (see savePrefs()). The default API base
+  // depends on where the page is being served from:
+  //   file://             → local Kestrel dev URL
+  //   localhost (docker)  → '' (relative; nginx reverse-proxies /api & /hubs)
+  //   anywhere else       → window.ORV_API_BASE from js/config.js
+  //                          (GitHub Pages, Cloudflare, custom domain, …)
+  // localStorage always wins, so the in-app Settings dialog can override.
+  apiBase: (() => {
+    const stored = localStorage.getItem('orv.apiBase');
+    if (stored !== null) return stored;
+    const h = location.hostname;
+    if (location.protocol === 'file:') return 'https://localhost:7138';
+    if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return '';
+    return window.ORV_API_BASE || '';
+  })(),
   ignoreSpoilers: localStorage.getItem('orv.ignoreSpoilers') === '1',
   token: null,
   user: null,

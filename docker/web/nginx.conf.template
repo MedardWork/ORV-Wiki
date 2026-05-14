@@ -1,5 +1,14 @@
+# Templated nginx config — envsubst substitutes ${PORT}, ${API_HOST}, and
+# ${API_PORT} at container start (see Dockerfile for the NGINX_ENVSUBST_FILTER
+# whitelist that prevents nginx's own $variables from being mangled).
+#
+# Local docker-compose: defaults from Dockerfile (PORT=80, API_HOST=api,
+# API_PORT=8080) match the api service name + listen port.
+# Railway: set PORT (auto-injected), API_HOST=api.railway.internal,
+# API_PORT=${{api.PORT}}.
+
 server {
-    listen       80;
+    listen       ${PORT};
     server_name  _;
     root         /usr/share/nginx/html;
     index        index.html;
@@ -11,7 +20,7 @@ server {
 
     # Proxy the REST API to the backend container.
     location /api/ {
-        proxy_pass         http://api:8080;
+        proxy_pass         http://${API_HOST}:${API_PORT};
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
@@ -21,7 +30,7 @@ server {
 
     # SignalR negotiate + WebSocket upgrade for /hubs/*.
     location /hubs/ {
-        proxy_pass         http://api:8080;
+        proxy_pass         http://${API_HOST}:${API_PORT};
         proxy_http_version 1.1;
         proxy_set_header   Upgrade           $http_upgrade;
         proxy_set_header   Connection        $connection_upgrade;
@@ -35,7 +44,7 @@ server {
 
     # OpenAPI / Scalar (Development only) — handy for poking at the API.
     location ~ ^/(openapi|scalar) {
-        proxy_pass         http://api:8080;
+        proxy_pass         http://${API_HOST}:${API_PORT};
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Forwarded-Proto $scheme;
