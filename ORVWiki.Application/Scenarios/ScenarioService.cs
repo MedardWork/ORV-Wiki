@@ -27,7 +27,12 @@ public class ScenarioService(
         Spoilers.RenderInline(s.Rewards, currentChapter),
         Spoilers.RenderInline(s.Penalty, currentChapter),
         s.ChapterStart,
-        s.ChapterEnd);
+        s.ChapterEnd,
+        s.ScenarioLocations
+            .OrderBy(sl => sl.Location.Name)
+            .Select(sl => new ScenarioLocationDto(
+                sl.LocationId, sl.Location.Page.Slug, sl.Location.Name))
+            .ToList());
 
     protected override ScenarioListItemDto ToListItem(Scenario s) => new(
         s.Id,

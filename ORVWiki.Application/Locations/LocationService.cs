@@ -24,7 +24,13 @@ public class LocationService(
         l.WorldlineId,
         l.ParentLocationId,
         l.Coordinates,
-        Spoilers.RenderInline(l.Description, currentChapter));
+        Spoilers.RenderInline(l.Description, currentChapter),
+        l.ScenarioLocations
+            .OrderBy(sl => sl.Scenario.ChapterStart)
+            .ThenBy(sl => sl.Scenario.Title)
+            .Select(sl => new LocationScenarioDto(
+                sl.ScenarioId, sl.Scenario.Page.Slug, sl.Scenario.Title, sl.Scenario.Type))
+            .ToList());
 
     protected override LocationListItemDto ToListItem(Location l) => new(
         l.Id,

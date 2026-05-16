@@ -13,20 +13,53 @@ public class CharacterRepository(AppDbContext db) : Repository<Character>(db), I
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
     public Task<Character?> GetVisibleBySlugAsync(string slug, int currentChapter, CancellationToken ct = default)
-        => Db.Characters
-            .AsNoTracking()
-            .Include(c => c.Page)
-            .FirstOrDefaultAsync(
-                c => c.Page.Slug == slug && c.Page.DiscoveryChapter <= currentChapter,
-                ct);
+        => DetailQuery(currentChapter).FirstOrDefaultAsync(c => c.Page.Slug == slug, ct);
 
     public Task<Character?> GetVisibleByIdAsync(long id, int currentChapter, CancellationToken ct = default)
+        => DetailQuery(currentChapter).FirstOrDefaultAsync(c => c.Id == id, ct);
+
+    // A visible character plus every relationship its wiki page surfaces. Each
+    // relation collection is filtered to targets the reader has already
+    // discovered, so the spoiler gate holds for linked entities too — a reader
+    // never learns a character has a skill/stigma whose page is still hidden.
+    // Split query: ten collection includes in one statement would multiply into
+    // a cartesian blow-up.
+    private IQueryable<Character> DetailQuery(int currentChapter)
         => Db.Characters
             .AsNoTracking()
-            .Include(c => c.Page)
-            .FirstOrDefaultAsync(
-                c => c.Id == id && c.Page.DiscoveryChapter <= currentChapter,
-                ct);
+            .AsSplitQuery()
+            .Where(c => c.Page.DiscoveryChapter <= currentChapter)
+            .Include(c => c.Page).ThenInclude(p => p.PageTags).ThenInclude(pt => pt.Tag)
+            .Include(c => c.CharacterStigmas
+                    .Where(x => x.Stigma.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Stigma).ThenInclude(s => s.Page)
+            .Include(c => c.CharacterAttributes
+                    .Where(x => x.Attribute.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Attribute).ThenInclude(a => a.Page)
+            .Include(c => c.CharacterSkills
+                    .Where(x => x.Skill.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Skill).ThenInclude(s => s.Page)
+            .Include(c => c.CharacterItems
+                    .Where(x => x.Item.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Item).ThenInclude(i => i.Page)
+            .Include(c => c.CharacterFables
+                    .Where(x => x.Fable.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Fable).ThenInclude(f => f.Page)
+            .Include(c => c.CharacterConstellations
+                    .Where(x => x.Constellation.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Constellation).ThenInclude(co => co.Page)
+            .Include(c => c.EventCharacters
+                    .Where(x => x.Event.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Event).ThenInclude(ev => ev.Page)
+            .Include(c => c.ScenarioParticipants
+                    .Where(x => x.Scenario.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(x => x.Scenario).ThenInclude(sc => sc.Page)
+            .Include(c => c.DeifiedConstellations
+                    .Where(co => co.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(co => co.Page)
+            .Include(c => c.OriginatedFables
+                    .Where(f => f.Page.DiscoveryChapter <= currentChapter))
+                .ThenInclude(f => f.Page);
 
     public async Task<PaginatedResult<Character>> ListVisibleAsync(
         int currentChapter,

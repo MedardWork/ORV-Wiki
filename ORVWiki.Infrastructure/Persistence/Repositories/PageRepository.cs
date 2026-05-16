@@ -11,16 +11,19 @@ public class PageRepository(AppDbContext db) : Repository<Page>(db), IPageReposi
     public Task<Page?> GetVisibleBySlugAsync(string slug, int currentChapter, CancellationToken ct = default)
         => Db.Pages
             .AsNoTracking()
+            .Include(p => p.PageTags).ThenInclude(pt => pt.Tag)
             .FirstOrDefaultAsync(p => p.Slug == slug && p.DiscoveryChapter <= currentChapter, ct);
 
     public Task<Page?> GetBySlugAsync(string slug, CancellationToken ct = default)
         => Db.Pages
             .AsNoTracking()
+            .Include(p => p.PageTags).ThenInclude(pt => pt.Tag)
             .FirstOrDefaultAsync(p => p.Slug == slug, ct);
 
     public async Task<PaginatedResult<Page>> ListVisibleAsync(
         int currentChapter,
         EntityType? entityType,
+        string? tagSlug,
         PaginationParams pagination,
         CancellationToken ct = default)
     {
@@ -31,11 +34,16 @@ public class PageRepository(AppDbContext db) : Repository<Page>(db), IPageReposi
         if (entityType.HasValue)
             query = query.Where(p => p.EntityType == entityType.Value);
 
+        if (!string.IsNullOrWhiteSpace(tagSlug))
+            query = query.Where(p => p.PageTags.Any(pt => pt.Tag.Slug == tagSlug));
+
         var total = await query.CountAsync(ct);
         var items = await query
             .OrderBy(p => p.Title)
             .Skip(pagination.Skip)
             .Take(pagination.SafePageSize)
+            .Include(p => p.PageTags).ThenInclude(pt => pt.Tag)
+            .AsSplitQuery()
             .ToListAsync(ct);
 
         return new PaginatedResult<Page>(items, total, pagination.SafePage, pagination.SafePageSize);

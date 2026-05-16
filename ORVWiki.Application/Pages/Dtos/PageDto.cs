@@ -1,5 +1,6 @@
 using ORVWiki.Application.Enums;
 using ORVWiki.Application.Spoilers.Dtos;
+using ORVWiki.Application.Tags.Dtos;
 
 namespace ORVWiki.Application.Pages.Dtos;
 
@@ -12,4 +13,5 @@ public record PageDto(
     RenderedContent ShortDescription,
     int ViewCount,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<TagDto> Tags);

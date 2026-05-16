@@ -18,4 +18,5 @@ public record ScenarioDto(
     RenderedContent Rewards,
     RenderedContent Penalty,
     int ChapterStart,
-    int? ChapterEnd);
+    int? ChapterEnd,
+    IReadOnlyList<ScenarioLocationDto> Locations);

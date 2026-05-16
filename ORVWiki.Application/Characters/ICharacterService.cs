@@ -5,8 +5,8 @@ namespace ORVWiki.Application.Characters;
 
 public interface ICharacterService
 {
-    Task<CharacterDto> GetVisibleByIdAsync(long id, int currentChapter, CancellationToken ct = default);
-    Task<CharacterDto> GetVisibleBySlugAsync(string slug, int currentChapter, CancellationToken ct = default);
+    Task<CharacterDetailDto> GetVisibleByIdAsync(long id, int currentChapter, CancellationToken ct = default);
+    Task<CharacterDetailDto> GetVisibleBySlugAsync(string slug, int currentChapter, CancellationToken ct = default);
 
     Task<PaginatedResult<CharacterListItemDto>> ListVisibleAsync(
         PaginationParams pagination,

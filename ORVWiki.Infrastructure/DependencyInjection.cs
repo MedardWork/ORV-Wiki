@@ -8,6 +8,7 @@ using ORVWiki.Application.Characters;
 using ORVWiki.Application.Comments;
 using ORVWiki.Application.Common;
 using ORVWiki.Application.EditSuggestions;
+using ORVWiki.Application.Entities;
 using ORVWiki.Application.Enums;
 using ORVWiki.Application.Notifications;
 using ORVWiki.Application.Pages;
@@ -41,6 +42,11 @@ public static class DependencyInjection
 
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped(typeof(IPagedEntityRepository<>), typeof(PagedEntityRepository<>));
+        // Scenario and Location override the generic paged repo to eager-load their
+        // ScenarioLocation links. Closed-type registrations placed after the open
+        // generic win when that specific IPagedEntityRepository<T> is resolved.
+        services.AddScoped<IPagedEntityRepository<Scenario>, ScenarioRepository>();
+        services.AddScoped<IPagedEntityRepository<Location>, LocationRepository>();
         services.AddScoped<IPageRepository, PageRepository>();
         services.AddScoped<ICharacterRepository, CharacterRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();

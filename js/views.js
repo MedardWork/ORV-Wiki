@@ -233,7 +233,10 @@ async function renderPage(slug) {
           // Structural facts that aren't RenderedContent — show as a small profile block.
           const profile = entityProfile(type, entity);
           if (profile) narrativeBlock.appendChild(profile);
-          placeholder.replaceWith(any || profile ? narrativeBlock : el('div', {}));
+          // Relationship sections (e.g. a scenario's locations, a location's scenarios).
+          const rels = entityRelationSections(type, entity);
+          for (const sec of rels) narrativeBlock.appendChild(sec);
+          placeholder.replaceWith(any || profile || rels.length ? narrativeBlock : el('div', {}));
         })
         .catch(() => {
           // Entity endpoint may 404 if the spoiler gate hides the entity even
@@ -331,6 +334,7 @@ function detailHeader(p, info) {
       el('span', {}, '👁 ', el('strong', {}, (p.viewCount ?? p.view_count ?? 0).toLocaleString()), ' views'),
       el('span', {}, '🜲 ', el('strong', {}, '/' + p.slug)),
     ),
+    tagRow(p.tags),
   );
 }
 
@@ -414,6 +418,7 @@ async function renderCharacter(slug) {
         c.gender ? el('span', {}, '⚥ ', el('strong', {}, cap(c.gender))) : null,
         discoveryCh != null ? el('span', {}, '📖 First seen: ', el('strong', {}, 'Ch. '+discoveryCh)) : null,
       ),
+      tagRow(c.tags),
     ));
 
     // Biography (RenderedContent — may carry inline spoilers).
@@ -446,6 +451,10 @@ async function renderCharacter(slug) {
       main.appendChild(body);
     }
 
+    // Relationships — navigable links to every related entity the character
+    // detail payload surfaces (already spoiler-filtered by the API).
+    for (const section of characterRelationSections(c)) main.appendChild(section);
+
     if (pageId) main.appendChild(commentsSection(pageData));
 
     layout.appendChild(main);
@@ -455,3 +464,125 @@ async function renderCharacter(slug) {
   } catch (e) { app.innerHTML = ''; app.appendChild(errorBlock(e)); }
 }
 function cap(s) { return s ? String(s)[0].toUpperCase()+String(s).slice(1) : ''; }
+function humanize(s) { return s == null || s === '' ? '' : cap(String(s).replace(/_/g, ' ')); }
+
+/* ============================================================
+   CHARACTER RELATIONSHIP SECTIONS
+   CharacterDetailDto carries ten relationship arrays. Each entry
+   becomes a clickable chip routing to the related entity's page
+   (page/{slug}). relSection returns null for an empty array so the
+   section is skipped entirely.
+============================================================ */
+function relSection(label, glyph, items, map) {
+  if (!items || !items.length) return null;
+  const grid = el('div', { class:'rel-grid' });
+  for (const it of items) {
+    const [slug, name, meta] = map(it);
+    grid.appendChild(el('div', {
+        class:'rel-chip', title:'Open ' + name,
+        onclick:() => navigate('page/' + slug) },
+      el('span', { class:'rel-name' }, name),
+      meta ? el('span', { class:'rel-meta' }, meta) : null,
+    ));
+  }
+  return el('div', { class:'detail-body' }, el('h2', {}, glyph + '  ' + label), grid);
+}
+
+function characterRelationSections(c) {
+  const E = ENTITY_TYPES;
+  const ch = n => n != null ? 'Ch.' + n : null;
+  const join = parts => parts.filter(Boolean).join(' · ');
+  return [
+    relSection('Skills', E.skill.glyph, c.skills, s =>
+      [s.slug, s.name, join([humanize(s.skillType), 'Lv.' + s.level, ch(s.acquiredChapter)])]),
+    relSection('Stigmas', E.stigma.glyph, c.stigmas, s =>
+      [s.slug, s.name, join([s.isPrimary ? 'Primary' : null, ch(s.acquiredChapter)])]),
+    relSection('Attributes', E.attribute.glyph, c.attributes, a =>
+      [a.slug, a.name, join([humanize(a.rarity), ch(a.acquiredChapter)])]),
+    relSection('Items', E.item.glyph, c.items, i =>
+      [i.slug, i.name, join([humanize(i.grade), ch(i.acquiredChapter),
+        i.lostChapter != null ? 'lost Ch.' + i.lostChapter : null])]),
+    relSection('Fables', E.fable.glyph, c.fables, f =>
+      [f.slug, f.title, join([humanize(f.grade), ch(f.acquiredChapter)])]),
+    relSection('Sponsoring Constellations', E.constellation.glyph, c.constellations, k =>
+      [k.slug, k.modifier, join([humanize(k.relationshipType), ch(k.sinceChapter)])]),
+    relSection('Ascended Constellations', E.constellation.glyph, c.deifiedConstellations, k =>
+      [k.slug, k.modifier, humanize(k.grade)]),
+    relSection('Originated Fables', E.fable.glyph, c.originatedFables, f =>
+      [f.slug, f.title, humanize(f.grade)]),
+    relSection('Events', E.event.glyph, c.events, e =>
+      [e.slug, e.title, join(['Ch.' + e.chapterNumber, humanize(e.role)])]),
+    relSection('Scenarios', E.scenario.glyph, c.scenarios, s =>
+      [s.slug, s.title, join([humanize(s.type), humanize(s.outcome)])]),
+  ].filter(Boolean);
+}
+
+// Relationship sections for the generic page view — currently the
+// scenario↔location links carried by ScenarioDto / LocationDto.
+function entityRelationSections(type, e) {
+  const E = ENTITY_TYPES;
+  if (type === 'scenario')
+    return [relSection('Locations', E.location.glyph, e.locations,
+      l => [l.slug, l.name, null])].filter(Boolean);
+  if (type === 'location')
+    return [relSection('Scenarios', E.scenario.glyph, e.scenarios,
+      s => [s.slug, s.title, humanize(s.type)])].filter(Boolean);
+  return [];
+}
+
+/* ============================================================
+   TAG CHIPS — clickable labels linking to a tag's filtered page list
+============================================================ */
+function tagRow(tags) {
+  if (!tags || !tags.length) return null;
+  const row = el('div', { class:'tag-row' });
+  for (const t of tags) {
+    row.appendChild(el('span', {
+        class:'tag-link', title:'Browse pages tagged ' + t.name,
+        onclick:() => navigate('tag/' + t.slug) },
+      t.color ? el('span', { class:'tag-dot', style:{ background:t.color }}) : null,
+      t.name,
+    ));
+  }
+  return row;
+}
+
+/* ============================================================
+   VIEW: TAG — pages carrying a given tag (spoiler-gated)
+============================================================ */
+async function renderTag(slug, page=1) {
+  page = parseInt(page) || 1;
+  const app = $('#app');
+  app.innerHTML = '<div class="loader"><div class="loader-spinner"></div></div>';
+  try {
+    const [res, tags] = await Promise.all([
+      api.get(`/api/pages?page=${page}&pageSize=24&tag=${encodeURIComponent(slug)}`),
+      api.get('/api/tags').catch(() => []),
+    ]);
+    const tag = (tags || []).find(t => t.slug === slug);
+    const items = res?.items || res?.Items || [];
+    const total = res?.total ?? res?.Total ?? items.length;
+    const ps    = res?.pageSize ?? res?.PageSize ?? 24;
+    app.innerHTML = '';
+    const v = el('div', { class:'view' });
+    v.appendChild(crumbs([['', 'Archive'], [null, tag?.name || slug]]));
+    v.appendChild(el('div', { class:'detail-header' },
+      el('div', { class:'type' }, '⌗ Tag'),
+      el('h1', {}, tag?.name || slug),
+      el('div', { class:'summary' }, 'Pages carrying this tag that your current reading chapter has revealed.'),
+    ));
+    if (!items.length) {
+      v.appendChild(el('div', { class:'empty' },
+        el('div', { class:'glyph' }, '⌗'),
+        el('h3', {}, 'No tagged pages visible yet'),
+        el('p', {}, State.user ? 'Advance your reading to reveal more entries.' : 'Sign in and set your reading chapter to begin.'),
+      ));
+    } else {
+      const grid = el('div', { class:'page-grid' });
+      items.forEach(p => grid.appendChild(pageCard(p)));
+      v.appendChild(grid);
+      v.appendChild(paginator(page, ps, total, n => navigate(`tag/${slug}/${n}`)));
+    }
+    app.appendChild(v);
+  } catch (e) { app.innerHTML = ''; app.appendChild(errorBlock(e)); }
+}

@@ -18,6 +18,7 @@ public class PagesController(IPageService pages) : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] EntityType? entityType = null,
+        [FromQuery] string? tag = null,
         [FromQuery] bool ignoreSpoilers = false,
         CancellationToken ct = default)
     {
@@ -26,6 +27,7 @@ public class PagesController(IPageService pages) : ControllerBase
             new PaginationParams(page, pageSize),
             currentChapter,
             entityType,
+            tag,
             ct);
         return Ok(result);
     }

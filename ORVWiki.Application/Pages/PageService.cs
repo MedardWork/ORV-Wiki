@@ -5,6 +5,7 @@ using ORVWiki.Application.Entities;
 using ORVWiki.Application.Enums;
 using ORVWiki.Application.Pages.Dtos;
 using ORVWiki.Application.Spoilers;
+using ORVWiki.Application.Tags.Dtos;
 
 namespace ORVWiki.Application.Pages;
 
@@ -35,9 +36,10 @@ public class PageService(
         PaginationParams pagination,
         int currentChapter,
         EntityType? entityType,
+        string? tagSlug,
         CancellationToken ct = default)
     {
-        var result = await pages.ListVisibleAsync(currentChapter, entityType, pagination, ct);
+        var result = await pages.ListVisibleAsync(currentChapter, entityType, tagSlug, pagination, ct);
         return new PaginatedResult<PageDto>(
             result.Items.Select(p => ToDto(p, currentChapter)).ToList(),
             result.Total,
@@ -54,5 +56,9 @@ public class PageService(
         spoilers.RenderInline(p.ShortDescription, currentChapter),
         p.ViewCount,
         p.CreatedAt,
-        p.UpdatedAt);
+        p.UpdatedAt,
+        p.PageTags
+            .OrderBy(pt => pt.Tag.Name)
+            .Select(pt => new TagDto(pt.Tag.Id, pt.Tag.Name, pt.Tag.Slug, pt.Tag.Color))
+            .ToList());
 }

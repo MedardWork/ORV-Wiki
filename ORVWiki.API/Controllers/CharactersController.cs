@@ -28,14 +28,14 @@ public class CharactersController(
     }
 
     [HttpGet("{id:long}")]
-    public async Task<ActionResult<CharacterDto>> GetById([FromRoute] long id, CancellationToken ct)
+    public async Task<ActionResult<CharacterDetailDto>> GetById([FromRoute] long id, CancellationToken ct)
     {
         var currentChapter = CurrentUser.GetCurrentChapter(User);
         return Ok(await characters.GetVisibleByIdAsync(id, currentChapter, ct));
     }
 
     [HttpGet("by-slug/{slug}")]
-    public async Task<ActionResult<CharacterDto>> GetBySlug([FromRoute] string slug, CancellationToken ct)
+    public async Task<ActionResult<CharacterDetailDto>> GetBySlug([FromRoute] string slug, CancellationToken ct)
     {
         var currentChapter = CurrentUser.GetCurrentChapter(User);
         return Ok(await characters.GetVisibleBySlugAsync(slug, currentChapter, ct));

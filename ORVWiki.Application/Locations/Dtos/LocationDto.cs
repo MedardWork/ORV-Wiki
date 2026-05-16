@@ -15,4 +15,5 @@ public record LocationDto(
     long? WorldlineId,
     long? ParentLocationId,
     JsonDocument? Coordinates,
-    RenderedContent Description);
+    RenderedContent Description,
+    IReadOnlyList<LocationScenarioDto> Scenarios);

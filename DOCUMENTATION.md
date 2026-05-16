@@ -61,10 +61,12 @@ Full schema is documented in `~/Desktop/ORV Wiki/ORV_Wiki_Database_Specifikacia.
 
 - **A. Beings (7)** — `Character`, `Constellation`, `Nebula`, `Dokkaebi`, `DemonKing`, `OuterGod`, `Worldline`
 - **B. Power system (5)** — `Fable`, `Stigma`, `Attribute`, `Skill`, `Item`
-- **C. Story & world (6)** — `Location`, `Scenario`, `Arc`, `Chapter`, `Event`, `Concept`
+- **C. Story & world (7)** — `Location`, `Scenario`, `Arc`, `Chapter`, `Event`, `Concept`, `Jump`
 - **D. Community (7)** — `User`, `Role`, `Comment`, `CommentReaction`, `EditSuggestion`, `Bookmark`, `Notification`
 - **E. Helpers (3)** — `Page`, `Media`, `Tag`
-- **Pivots (11 distinct)** — `CharacterStigma`, `CharacterAttribute`, `CharacterSkill`, `CharacterItem`, `CharacterFable`, `CharacterConstellation`, `EventCharacter`, `ScenarioParticipant`, `ScenarioLocation`, `PageTag`, `EventConnection`. (`CommentReaction` doubles as the Comment↔User pivot.)
+- **Pivots (10 distinct)** — `CharacterStigma`, `CharacterAttribute`, `CharacterSkill`, `CharacterItem`, `CharacterFable`, `CharacterConstellation`, `EventCharacter`, `ScenarioParticipant`, `ScenarioLocation`, `PageTag`. (`CommentReaction` doubles as the Comment↔User pivot.)
+
+> **Timeline rework (May 2026):** `EventConnection` was removed as a pivot. The graph edges between worldlines are now first-class `Jump` rows (worldline-to-worldline, carrying an opaque `CharacterLabel`, optional `Description`, `LengthEstimate`, and `ArcId`). See migration `20260509205046_WorldlineJumpsRefactor` and the updated `/api/timeline` payload in §6.
 
 ### The `Page` pattern
 
@@ -119,10 +121,10 @@ Bookmarks/
   Dtos/BookmarkDto.cs
 
 Characters/
-  CharacterService.cs            ← full CRUD; ToDto renders Page.Title, Page.ShortDescription, Biography + cache invalidation
+  CharacterService.cs            ← full CRUD; ToDto (writes) + ToDetailDto (reads, embeds relationships) + cache invalidation
   ICharacterRepository.cs
   ICharacterService.cs
-  Dtos/                          ← CharacterDto, CharacterListItemDto, CreateCharacterRequest, UpdateCharacterRequest
+  Dtos/                          ← CharacterDto, CharacterDetailDto, CharacterRelationDtos, CharacterListItemDto, CreateCharacterRequest, UpdateCharacterRequest
   Validators/
 
 Comments/
@@ -154,7 +156,7 @@ EditSuggestions/
   Dtos/                          ← EditSuggestionDto, CreateEditSuggestionRequest
   Validators/
 
-Entities/                        ← 28 main entity classes + Pivots/ (11 pivot classes)
+Entities/                        ← 29 main entity classes + Pivots/ (10 pivot classes)
 Enums/Enums.cs                   ← all 20 PostgreSQL enums in one file
 
 Notifications/
@@ -180,7 +182,7 @@ Spoilers/
 Timeline/
   TimelineService.cs             ← cross-aggregate query against IAppDbContext directly
   ITimelineService.cs
-  Dtos/                          ← WorldlineNodeDto, EventNodeDto, EventConnectionEdgeDto, TimelineDto
+  Dtos/                          ← WorldlineNodeDto, EventNodeDto, JumpEdgeDto, TimelineDto
 
 # Read-only spoiler-rendered modules for the 16 remaining encyclopedic entities.
 # Each folder follows the same shape — one service that extends
@@ -208,7 +210,9 @@ Persistence/
   AppDbContext.cs                ← implements IAppDbContext, all entity configs in OnModelCreating
   DbInitializer.cs               ← Database.MigrateAsync() + role seeding (Development only)
   Migrations/
-    20260429201044_InitialCreate.cs   ← 39 tables, 20 enum types, all FKs/CHECKs/UNIQUEs
+    20260429201044_InitialCreate.cs            ← 39 tables, 20 enum types, all FKs/CHECKs/UNIQUEs
+    20260430154817_ReorderCharacterStatusEnum.cs ← reshuffles the `CharacterStatus` PostgreSQL enum
+    20260509205046_WorldlineJumpsRefactor.cs   ← drops `EventConnection`, adds `Jump` (worldline→worldline edges)
     AppDbContextModelSnapshot.cs
   Repositories/
     Repository.cs                ← generic Repository<T> base
@@ -287,7 +291,7 @@ Two distinct concerns, both in `SpoilerService`:
 **Where `RenderInline` is wired** (every visible string field that may contain `[spoiler ch=N]` markup):
 
 - `PageDto` — `Title`, `ShortDescription`
-- `CharacterDto` — `Title`, `ShortDescription`, `Biography`
+- `CharacterDto` / `CharacterDetailDto` — `Title`, `ShortDescription`, `Biography`
 - All 16 other encyclopedic DTOs (`ConstellationDto`, `ItemDto`, `StigmaDto`, `ScenarioDto`, …) — `Title`, `ShortDescription`, plus the entity's narrative field(s):
   - **Narrative fields:** `Arc.Summary`, `Attribute.Effect`, `Concept.Definition`, `Constellation.Description`, `DemonKing.Description`, `Dokkaebi.Speciality`, `Event.Title` + `Event.Description`, `Fable.Title` + `Fable.Legend`, `Item.Description`, `Location.Description`, `Nebula.Description`, `OuterGod.Description`, `Scenario.Title` + `Conditions` + `Rewards` + `Penalty`, `Skill.Effect`, `Stigma.Effect`, `Worldline.Description`
 
@@ -379,6 +383,8 @@ This is the **fast path**. All 16 non-Character encyclopedic entities use it; mi
 2. **API** — `{Entities}Controller` with `[Route("api/{entities}")]`, `[Authorize(Policy = AuthPolicies.Reader)]`, three endpoints (`GET /`, `GET /{id:long}`, `GET /by-slug/{slug}`). Mirror any of the 16 existing read-only controllers (e.g., `ItemsController`).
 3. **DI** — `services.AddScoped<{Entity}Service>();` in `AddApplication()`. The repository is registered once as an open generic (`AddScoped(typeof(IPagedEntityRepository<>), typeof(PagedEntityRepository<>))`) — no per-entity registration needed.
 
+> **Embedding relationships:** to surface a pivot on an entity's detail page (as `Scenario`/`Location` do for `ScenarioLocation`), add `{Entity}Repository : PagedEntityRepository<TEntity>` overriding the `DetailQuery` hook with the eager-load `Include`s, then register it as a closed-type `IPagedEntityRepository<TEntity>` *after* the open generic in `AddInfrastructure()` (the closed registration wins). Single-entity reads then load the pivot; list reads stay on the lean `VisibleQuery`.
+
 > **Naming gotchas:** `Attribute` clashes with `System.Attribute` (use `using AttributeEntity = ORVWiki.Application.Entities.Attribute;`). `Dokkaebi` clashes with its own namespace (use folder `Dokkaebis/` and alias `using DokkaebiEntity = ORVWiki.Application.Entities.Dokkaebi;`).
 
 ### 5.2 Adding full CRUD for an encyclopedic entity (e.g., write API)
@@ -454,23 +460,43 @@ Open [https://localhost:7138](https://localhost:7138) and [http://localhost:5044
 ### Pages (`/api/pages`) — spoiler-gated
 
 
-| Method | Path                         | Auth | Purpose                                       |
-| ------ | ---------------------------- | ---- | --------------------------------------------- |
-| GET    | `/?page&pageSize&entityType` | R    | Paginated visible pages, optional type filter |
-| GET    | `/{slug}`                    | R    | Single page (cached 5 min)                    |
+| Method | Path                             | Auth | Purpose                                                               |
+| ------ | -------------------------------- | ---- | --------------------------------------------------------------------- |
+| GET    | `/?page&pageSize&entityType&tag` | R    | Paginated visible pages; optional `entityType` / `tag` (slug) filters |
+| GET    | `/{slug}`                        | R    | Single page (cached 5 min)                                            |
+
+Every `PageDto` carries its `tags` — a list of `{ id, name, slug, color }`. The `?tag={slug}` filter narrows the list to pages bearing that tag (still spoiler-gated), which is how the frontend's tag-browse view is served.
+
+### Tags (`/api/tags`)
+
+| Method | Path | Auth | Purpose                                            |
+| ------ | ---- | ---- | -------------------------------------------------- |
+| GET    | `/`  | R    | All tags (`id`, `name`, `slug`, `color`), by name  |
+
+Tags are a small unspoilerable lookup set, so the whole list is returned unpaginated and ungated. Browse a tag's pages via `GET /api/pages?tag={slug}`.
 
 
 ### Characters (`/api/characters`) — spoiler-gated
 
 
-| Method | Path              | Auth | Purpose                                  |
-| ------ | ----------------- | ---- | ---------------------------------------- |
-| GET    | `/?page&pageSize` | R    | Paginated visible characters             |
-| GET    | `/{id:long}`      | R    | Single character with rendered biography |
-| GET    | `/by-slug/{slug}` | R    | Same, by slug                            |
-| POST   | `/`               | E    | Create character + its page              |
-| PUT    | `/{id:long}`      | E    | Replace character + page metadata        |
-| DELETE | `/{id:long}`      | A    | Cascade delete via Page FK               |
+| Method | Path              | Auth | Purpose                                     |
+| ------ | ----------------- | ---- | ------------------------------------------- |
+| GET    | `/?page&pageSize` | R    | Paginated visible characters (list items)   |
+| GET    | `/{id:long}`      | R    | One character + embedded relationship links |
+| GET    | `/by-slug/{slug}` | R    | Same, by slug                               |
+| POST   | `/`               | E    | Create character + its page                 |
+| PUT    | `/{id:long}`      | E    | Replace character + page metadata            |
+| DELETE | `/{id:long}`      | A    | Cascade delete via Page FK                  |
+
+**Character detail payload.** The two GET-detail endpoints return `CharacterDetailDto` — the character's own fields plus eleven arrays. Each pivot-derived entry is a navigable link (target `id` + `slug` + display name) carrying its join-row metadata:
+
+- `stigmas`, `attributes`, `skills`, `items`, `fables` — owned powers/possessions (`level`, `acquiredChapter`, `lostChapter`, `isPrimary` as applicable).
+- `constellations` — sponsoring/opposing constellations, typed by `CharacterConstellationRel` (`MainSponsor` / `Patron` / `Subscriber` / `Opposed`).
+- `events`, `scenarios` — story participation, typed by `EventCharacterRole` / `ScenarioOutcome`.
+- `deifiedConstellations`, `originatedFables` — constellations the character became and fables that originated from them (direct FK, not pivots).
+- `tags` — the character page's tags (`id`, `name`, `slug`, `color`); each links to the tag's filtered page list.
+
+Each relation is spoiler-gated on the **target's** `discoveryChapter`, so a reader never learns a character holds a skill/stigma whose page is still hidden. List, create and update still return the flat `CharacterDto` (no relationships).
 
 
 ### Read-only encyclopedic entities — spoiler-gated
@@ -505,6 +531,8 @@ All 16 entities below share the same three-endpoint shape via `PagedEntityReadSe
 | `Stigma`        | `/api/stigmas`        | `Effect`                                    |
 | `Worldline`     | `/api/worldlines`     | `Description`                               |
 
+
+**Scenario and Location detail** additionally embed their `ScenarioLocation` links — `ScenarioDto.locations` lists the places a scenario plays out, `LocationDto.scenarios` lists the scenarios staged there, each spoiler-gated on the linked entity's `discoveryChapter`. The other 14 entities use the generic `PagedEntityRepository`; Scenario and Location register subclasses that override its `DetailQuery` hook (see §5.1) to eager-load the pivot for single-entity reads while list reads stay lean.
 
 **Write endpoints (POST/PUT/DELETE) are not yet exposed for these 16.** Add them by mirroring `CharactersController` per §5.2 when a write workflow is needed.
 
@@ -557,9 +585,11 @@ All 16 entities below share the same three-endpoint shape via `PagedEntityReadSe
 ### Timeline (`/api/timeline`)
 
 
-| Method | Path                        | Auth | Purpose                                                                         |
-| ------ | --------------------------- | ---- | ------------------------------------------------------------------------------- |
-| GET    | `/?upToChapter&characterId` | R    | Full graph payload — worldlines (skeleton), filtered events, pruned connections |
+| Method | Path                        | Auth | Purpose                                                                       |
+| ------ | --------------------------- | ---- | ----------------------------------------------------------------------------- |
+| GET    | `/?upToChapter&characterId` | R    | Full graph payload — worldlines (skeleton), filtered events, worldline jumps  |
+
+**Payload shape:** `{ worldlines: WorldlineNodeDto[], events: EventNodeDto[], jumps: JumpEdgeDto[] }`. Every worldline is always returned so the renderer can draw lanes even when no event or jump matches the filter. Jumps are gated by their `Arc.ChapterStart` when present (or always shown when not arc-linked); they don't carry a chapter directly. `characterId` filter applies to events only — `Jump.CharacterLabel` is an opaque display string, not an FK.
 
 
 Note: per spec the timeline is **inherently spoiler-rich**, hence opt-in (no automatic `current_chapter` filter). Use `?upToChapter=N` to self-impose a limit.
@@ -590,7 +620,7 @@ Note: per spec the timeline is **inherently spoiler-rich**, hence opt-in (no aut
 ```json
 {
   "ConnectionStrings": {
-    "Postgres": "Host=localhost;Port=5432;Database=orv_wiki;Username=postgres;Password=postgres"
+    "Postgres": "Host=localhost;Port=5432;Database=orv_wiki;Username=medardduris;Password="
   },
   "Jwt": {
     "Issuer": "orv-wiki",
@@ -601,6 +631,8 @@ Note: per spec the timeline is **inherently spoiler-rich**, hence opt-in (no aut
   "Serilog": { /* MinimumLevel, WriteTo, Enrich */ }
 }
 ```
+
+The committed default is the laptop's local Postgres (no password, trust auth). For the docker stack the connection string is overridden via the `ConnectionStrings__Postgres` env var in `docker-compose.yml`; for Railway it references `${{Postgres.PGHOST}}` / `…PGUSER` / `…PGPASSWORD` from the managed Postgres service. See §12 for the full docker / cloud wiring.
 
 **Before deploying:**
 
@@ -691,9 +723,14 @@ The other 16 encyclopedic entities (`Constellation`, `Nebula`, `Stigma`, etc.) e
 
 Anyone with valid credentials can spam `POST /api/comments`, `POST /api/edit-suggestions`, etc. Add `Microsoft.AspNetCore.RateLimiting` policies before production.
 
-### No CORS configuration
+### CORS is permissive in Development, locked in non-Development
 
-If you'll serve a separate frontend, add `AddCors` + `UseCors` in `Program.cs` with the frontend origin allowlist. Currently any browser on a different origin will be blocked.
+`Program.cs` registers a default CORS policy:
+
+- **Development:** `SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod().AllowCredentials()` — reflects whichever Origin the request brought (including `null` for `file://`), so local frontends opened from disk or any localhost port can call the API.
+- **Non-Development:** `WithOrigins("https://claude.ai")…` — single origin allowlist.
+
+**Caveat for the deployed stack:** because the Railway API runs with `ASPNETCORE_ENVIRONMENT=Development` (so seed data and OpenAPI also work), the production CORS is effectively permissive. If you ever flip the Railway env to `Production`, the GitHub Pages frontend will get blocked — either add `https://medardwork.github.io` to the production allowlist, or keep Development mode.
 
 ### Notification push is best-effort
 
@@ -725,9 +762,12 @@ Each phase shipped self-contained. The final solution is the union of all eight.
 | 3 — Core wiki CRUD     | `IRepository<T>` generic + `Repository<T>` base, `PageRepository` and `CharacterRepository` with spoiler-aware queries, services + DTOs + validators, `PagesController` + `CharactersController`, pagination types                                                                                                                                                             |
 | 4 — Spoiler system     | `SpoilerService` with `IsRevealed`/`EnsureRevealed` (page gate) + `RenderInline` (inline `[spoiler ch=N]` parser → server-enforced segments), `Character.Biography` switched from raw string to `RenderedContent`                                                                                                                                                              |
 | 5 — Community features | Comments (threading + spoiler filter on `chapter_at_post` + soft delete), `CommentReaction` toggle (per-type unique), `Bookmark` toggle, `EditSuggestion` workflow with diff apply + notifications, `Notification` CRUD, `ForbiddenException` (403) added                                                                                                                      |
-| 6 — Timeline           | `TimelineService` returning `{Worldlines, Events, Connections}` graph payload, optional `upToChapter` and `characterId` filters, dead-edge pruning                                                                                                                                                                                                                             |
+| 6 — Timeline           | `TimelineService` returning `{Worldlines, Events, Jumps}` graph payload, optional `upToChapter` and `characterId` filters. Originally edges were `EventConnection` pivot rows; reworked in migration `WorldlineJumpsRefactor` (May 2026) to first-class `Jump` rows that go worldline-to-worldline.                                                                                |
 | 7 — Polish             | Serilog structured logging + request logging, Scalar UI for OpenAPI with Bearer auth, `IMemoryCache` for popular pages with explicit invalidation, SignalR `NotificationsHub` + `INotificationPusher` abstraction, JWT-from-query for WebSocket upgrades, switched `EnqueueAsync` → `PublishAsync` (save-then-push semantics)                                                  |
 | 8 — Universal spoilers | `IPagedEntity` marker + open-generic `PagedEntityRepository<T>` + abstract `PagedEntityReadService<T,TDto,TListItemDto>`. `Page.Title` and `Page.ShortDescription` switched from raw string to `RenderedContent`. 16 new read-only endpoints (`/api/arcs`, `/api/items`, `/api/stigmas`, …) — every visible string field across the wiki now respects `[spoiler ch=N]` markup. |
+| 9 — Timeline rework    | `EventConnection` pivot dropped. New `Jump` entity (worldline-to-worldline edges with `CharacterLabel`, optional `Description` / `LengthEstimate` / `ArcId`). `TimelineDto` shape became `{Worldlines, Events, Jumps}`. Migration: `20260509205046_WorldlineJumpsRefactor`.                                                                                                       |
+| 10 — Containerization  | Multi-stage Dockerfile for the API (.NET 10 publish → aspnet runtime, listens on `$PORT` for cloud hosts). Nginx-based frontend image with an envsubst template config so `PORT` / `API_HOST` / `API_PORT` are runtime-configurable. `docker-compose.yml` for local dev + `docker-compose.prod.yml` for handoff. Permissive-in-Dev CORS in `Program.cs` added in support.        |
+| 11 — Cloud deployment  | API + managed Postgres on Railway, static frontend on GitHub Pages, multi-arch images (`amd64`+`arm64`) pushed to GHCR (`ghcr.io/medardwork/orv-api`, `…/orv-web`). `js/config.js` carries the per-deployment API URL; `core.js` picks the right default based on hostname; localStorage overrides honored except when stale localhost saves block production.                  |
 
 
 ---
@@ -748,4 +788,208 @@ When picking this project back up, here's the minimum to know:
 - **All exceptions in `Application/Common/Exceptions/`** are auto-mapped to status codes by `ExceptionHandlingMiddleware`.
 - **Migration command** uses `--project ORVWiki.Infrastructure --startup-project ORVWiki.API`.
 - **Build clean, no warnings**, host starts on `dotnet run --project ORVWiki.API`.
+- **Container / cloud deployment lives in §12** — three-service docker stack (db + api + web), multi-arch GHCR images, Railway for API + Postgres, GitHub Pages for the static frontend.
+
+---
+
+## 12. Docker & cloud deployment
+
+The full stack runs in three containers and ships to two hosts.
+
+### 12.1 Local stack — `docker compose`
+
+Three services defined in `docker-compose.yml`:
+
+| Service | Image | Role |
+| --- | --- | --- |
+| `db`   | `postgres:16-alpine` (pulled from Docker Hub) | Postgres with named volume `pgdata`, exposed on host `:5432` for direct connection from Rider/DBeaver |
+| `api`  | built from `ORVWiki.API/Dockerfile`           | .NET 10 ASP.NET Core, listens on container `:8080`, host port `:5080` (macOS reserves `:5000` for Control Center) |
+| `web`  | built from `docker/web/Dockerfile`            | Nginx serving `index.html` + `styles.css` + `js/`, reverse-proxies `/api/*`, `/hubs/*`, `/openapi`, `/scalar` to `api:8080` — gives the browser a single origin, no CORS |
+
+Run:
+
+```bash
+docker compose up -d            # build (if needed) + start
+docker compose up -d --build    # force rebuild after code changes
+docker compose logs -f api      # tail API logs
+docker compose stop             # stop (keep data volume)
+docker compose down -v          # stop AND wipe pgdata volume
+```
+
+Then open **http://localhost:8080**. First boot runs EF migrations + seed (Arc01_ThreeWaysToSurvive + Backbone_WorldlineJumps) automatically because `ASPNETCORE_ENVIRONMENT=Development` is set in compose.
+
+Defaults / overridable via `.env` next to the compose file (see `.env.example`):
+
+```
+POSTGRES_DB=orv_wiki
+POSTGRES_USER=orv
+POSTGRES_PASSWORD=orv
+JWT_SIGNING_KEY=…at least 32 chars…
+```
+
+### 12.2 The two compose files
+
+| File | When | Source of images |
+| --- | --- | --- |
+| `docker-compose.yml`      | Developing locally               | `build:` from source for `api` and `web` |
+| `docker-compose.prod.yml` | Handing the stack to someone else | `image: ghcr.io/medardwork/orv-{api,web}:latest` — recipient doesn't need the source |
+
+A grader gets one file and one command:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### 12.3 Image registry — GHCR
+
+Multi-arch images (`linux/amd64` + `linux/arm64`) are published at:
+
+- `ghcr.io/medardwork/orv-api:latest`
+- `ghcr.io/medardwork/orv-web:latest`
+
+Both packages are **public** under https://github.com/MedardWork?tab=packages so no token is needed to pull them.
+
+**Why multi-arch:** building on an Apple Silicon Mac produces `arm64` by default; Railway and most cloud hosts run `amd64`. A single-arch push would silently fail on Railway with "There was an error deploying from source." Always build both via `docker buildx`:
+
+```bash
+docker buildx create --name multiarch --driver docker-container --bootstrap --use   # one-time
+
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/medardwork/orv-api:latest \
+  -f ORVWiki.API/Dockerfile \
+  --push .
+
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/medardwork/orv-web:latest \
+  -f docker/web/Dockerfile \
+  --push .
+```
+
+To push you need a PAT with `write:packages`:
+
+```bash
+echo 'ghp_…' | docker login ghcr.io -u MedardWork --password-stdin
+```
+
+### 12.4 Image internals worth knowing
+
+**API image (`ORVWiki.API/Dockerfile`)** is a two-stage build:
+
+- `sdk:10.0` stage restores csproj files first (cached as long as deps don't change), then `dotnet publish -c Release`.
+- `aspnet:10.0` runtime stage copies `/app/publish`, switches to the base image's pre-existing non-root `app` user, and exits via:
+  ```dockerfile
+  ENTRYPOINT ["/bin/sh", "-c", "exec dotnet ORVWiki.API.dll --urls=http://+:${PORT:-8080}"]
+  ```
+  Locally `PORT` is unset → binds 8080; on Railway `$PORT` is injected → binds whatever Railway picks. `exec` keeps PID 1 on dotnet so signal handling works.
+
+**Web image (`docker/web/Dockerfile`)** is plain `nginx:1.27-alpine` + the static assets + a **template** config:
+
+- `docker/web/nginx.conf.template` uses `${PORT}`, `${API_HOST}`, `${API_PORT}` placeholders.
+- nginx's official entrypoint runs envsubst on files in `/etc/nginx/templates/*.template` at container start.
+- `ENV NGINX_ENVSUBST_FILTER="^(PORT|API_HOST|API_PORT)$"` whitelists ONLY those three names so nginx's own `$host` / `$remote_addr` / `$connection_upgrade` aren't replaced with empty strings.
+- Defaults `PORT=80 API_HOST=api API_PORT=8080` make local docker-compose work out of the box (where the api service is reachable as `api:8080`).
+- `docker/web/connection_upgrade.conf` defines the `$connection_upgrade` map needed for SignalR WebSocket upgrades; it's NOT a template (sits in `/etc/nginx/conf.d/` directly).
+
+### 12.5 Cloud topology
+
+```
+                        ┌─────────────────────────┐
+   medardwork.github.io │  GitHub Pages (static)  │
+    /ORV-Wiki/index.html│  index.html + js/ + css │
+                        └────────────┬────────────┘
+                                     │ fetch / WebSocket
+                                     ▼
+                        ┌─────────────────────────┐
+                        │  Railway: orv-api       │
+                        │  ghcr.io/.../orv-api    │
+                        │  $PORT, ASPNETCORE_ENV=Dev │
+                        └────────────┬────────────┘
+                                     │ private network
+                                     ▼
+                        ┌─────────────────────────┐
+                        │  Railway: Postgres      │
+                        │  managed plugin, SSL    │
+                        │  PGHOST / PGUSER / …    │
+                        └─────────────────────────┘
+```
+
+The **web container is NOT deployed to the cloud** — GitHub Pages serves the static files directly. The nginx image only matters for the local docker stack.
+
+### 12.6 Railway — API service env vars
+
+Set on the `api` service in Railway:
+
+| Variable | Value |
+| --- | --- |
+| `ASPNETCORE_ENVIRONMENT` | `Development` |
+| `ConnectionStrings__Postgres` | `Host=${{Postgres.PGHOST}};Port=${{Postgres.PGPORT}};Database=${{Postgres.PGDATABASE}};Username=${{Postgres.PGUSER}};Password=${{Postgres.PGPASSWORD}};SSL Mode=Require;Trust Server Certificate=true` |
+| `Jwt__Issuer` | `orv-wiki` |
+| `Jwt__Audience` | `orv-wiki-clients` |
+| `Jwt__SigningKey` | ≥32-char random secret |
+| `Jwt__AccessTokenMinutes` | `60` |
+
+**Important quirks:**
+
+- **Development is intentional.** Production mode disables the seed (`DbInitializer.InitializeAsync` is in an `if (IsDevelopment)` block), locks CORS to `https://claude.ai`, and activates `UseHttpsRedirection` which causes a `Failed to determine the https port` warning behind Railway's TLS termination.
+- **Railway batches variable edits.** After adding/changing a variable you must click the **Deploy** button at the top — otherwise the container keeps the old values. `RAILWAY_ENVIRONMENT_NAME` is Railway's own metadata (`production` / `staging` label); it does NOT affect `ASPNETCORE_ENVIRONMENT`.
+- **`ASPNETCORE_URLS` is not needed.** The image entrypoint already binds to `$PORT`. If both are set, the `--urls` cmd arg wins — same outcome either way.
+- **Data Protection key warning is benign.** Keys live in `/home/app/.aspnet/DataProtection-Keys` (ephemeral). Only affects cookies/antiforgery, neither of which this app uses — JWT validation uses `Jwt:SigningKey` from config and survives container restarts.
+
+### 12.7 Frontend — GitHub Pages
+
+Pages serves from `main` / `/ (root)`. The entry is `index.html` (renamed from the original `orv-wiki-frontend.html` for Pages auto-discovery). The repo root has plenty of non-frontend files (Dockerfiles, csprojs); Pages just ignores them.
+
+URL: **https://medardwork.github.io/ORV-Wiki/** (the trailing slash matters — without it relative asset paths break).
+
+#### How the frontend picks its API base
+
+Three-tier fallback in `js/core.js` (`State.apiBase` initializer):
+
+1. **localStorage `orv.apiBase`** wins — except when its value looks like a localhost URL AND the page itself isn't being served from a local origin. That carve-out exists because users who tested locally and saved `https://localhost:7138` would otherwise be stuck (the in-app Settings dialog is login-gated, creating a chicken-and-egg).
+2. **Hostname-based default** otherwise:
+   - `file://` → `https://localhost:7138` (Kestrel dev URL)
+   - `localhost` / `127.0.0.1` / `0.0.0.0` → `''` (same-origin; docker-compose's nginx proxies `/api` and `/hubs`)
+   - Anywhere else → `window.ORV_API_BASE` from `js/config.js`
+
+`js/config.js` is loaded **before** `js/core.js` and holds one line:
+
+```js
+window.ORV_API_BASE = 'https://orv-api-production.up.railway.app';
+```
+
+Edit that single line when the API URL changes; push to `main` and GitHub Pages auto-rebuilds in 30-60 seconds.
+
+#### Pages build pitfalls (already fixed, documented for future-you)
+
+- **Broken submodule gitlink.** `actions/checkout` failed with `No url found for submodule path '.claude/worktrees/distracted-bouman-c3788e' in .gitmodules`. Fixed by `git rm --cached` on the gitlink and adding `.claude/worktrees/` (plus `bin/`, `obj/`, etc.) to `.gitignore`.
+- **Cached 404.** After enabling Pages, browsers cache the "There isn't a GitHub Pages site here" page. Hard refresh or incognito to dodge.
+- **CORS confusion.** If the API logs show `Hosting environment: Production`, the deployed CORS policy locks to `claude.ai` only and the Pages frontend can't reach it. Fix is just to set `ASPNETCORE_ENVIRONMENT=Development` and redeploy — see §12.6.
+
+### 12.8 Update flow
+
+| Change | What to do |
+| --- | --- |
+| .NET code | Rebuild + push `orv-api` multi-arch (§12.3), then **Redeploy** the api service in Railway |
+| nginx config / static frontend (for local stack) | Rebuild + push `orv-web` multi-arch (§12.3) — only matters if you want others' local stacks to pick up the change |
+| Frontend (for production) | `git push origin main` — GitHub Pages rebuilds automatically |
+| DB schema | New EF migration as in §8; the api container runs `Database.MigrateAsync()` on startup in Dev mode, so a Railway redeploy applies it |
+| Railway env vars | Edit in Variables tab → click the staged **Deploy** button (it's not automatic) |
+
+### 12.9 Files map
+
+```
+/.dockerignore                       ← API context filter (frontend files left in for the web image)
+/.env.example                        ← compose defaults (POSTGRES_*, JWT_SIGNING_KEY)
+/docker-compose.yml                  ← local dev: build from source
+/docker-compose.prod.yml             ← handoff: pull from GHCR
+/ORVWiki.API/Dockerfile              ← multi-stage .NET 10 build
+/docker/web/Dockerfile               ← nginx + static assets + envsubst template
+/docker/web/nginx.conf.template      ← templated nginx server block (PORT/API_HOST/API_PORT)
+/docker/web/connection_upgrade.conf  ← $connection_upgrade map for WebSocket proxying
+/index.html                          ← entry HTML (formerly orv-wiki-frontend.html)
+/js/config.js                        ← single source of the production API URL
+/js/core.js                          ← hostname-aware State.apiBase initializer
+```
 

@@ -23,6 +23,7 @@ using ORVWiki.Application.Scenarios;
 using ORVWiki.Application.Skills;
 using ORVWiki.Application.Spoilers;
 using ORVWiki.Application.Stigmas;
+using ORVWiki.Application.Tags;
 using ORVWiki.Application.Timeline;
 using ORVWiki.Application.Worldlines;
 
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IBookmarkService, BookmarkService>();
         services.AddScoped<IEditSuggestionService, EditSuggestionService>();
         services.AddScoped<ITimelineService, TimelineService>();
+        services.AddScoped<ITagService, TagService>();
 
         // Spoiler-aware read services for the rest of the encyclopedic entities.
         services.AddScoped<ArcService>();

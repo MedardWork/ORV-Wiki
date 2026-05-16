@@ -6,17 +6,22 @@ namespace ORVWiki.Infrastructure.Persistence.Repositories;
 public class PagedEntityRepository<TEntity>(AppDbContext db) : IPagedEntityRepository<TEntity>
     where TEntity : class, IPagedEntity
 {
-    private IQueryable<TEntity> VisibleQuery(int currentChapter) =>
+    protected IQueryable<TEntity> VisibleQuery(int currentChapter) =>
         db.Set<TEntity>()
             .AsNoTracking()
             .Include(e => e.Page)
             .Where(e => e.Page.DiscoveryChapter <= currentChapter);
 
+    // Backs single-entity reads. The base returns VisibleQuery unchanged;
+    // subclasses override to eager-load the relationships their detail page
+    // surfaces, while list reads stay on the lean VisibleQuery.
+    protected virtual IQueryable<TEntity> DetailQuery(int currentChapter) => VisibleQuery(currentChapter);
+
     public Task<TEntity?> GetVisibleByIdAsync(long id, int currentChapter, CancellationToken ct = default)
-        => VisibleQuery(currentChapter).FirstOrDefaultAsync(e => e.Id == id, ct);
+        => DetailQuery(currentChapter).FirstOrDefaultAsync(e => e.Id == id, ct);
 
     public Task<TEntity?> GetVisibleBySlugAsync(string slug, int currentChapter, CancellationToken ct = default)
-        => VisibleQuery(currentChapter).FirstOrDefaultAsync(e => e.Page.Slug == slug, ct);
+        => DetailQuery(currentChapter).FirstOrDefaultAsync(e => e.Page.Slug == slug, ct);
 
     public async Task<PaginatedResult<TEntity>> ListVisibleAsync(
         int currentChapter,

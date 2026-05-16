@@ -20,6 +20,7 @@ function renderRoute() {
   if (head === 'category')   return renderCategory(p[1], p[2]);
   if (head === 'page')       return renderPage(p[1]);
   if (head === 'character')  return renderCharacter(p[1]);
+  if (head === 'tag')        return renderTag(p[1], p[2]);
   if (head === 'timeline')   return renderTimeline();
   if (head === 'bookmarks')  return renderBookmarks();
   if (head === 'suggestions')return renderMySuggestions();

@@ -12,5 +12,6 @@ public interface IPageService
         PaginationParams pagination,
         int currentChapter,
         EntityType? entityType,
+        string? tagSlug,
         CancellationToken ct = default);
 }

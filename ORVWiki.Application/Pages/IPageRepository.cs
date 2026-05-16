@@ -22,6 +22,7 @@ public interface IPageRepository : IRepository<Page>
     Task<PaginatedResult<Page>> ListVisibleAsync(
         int currentChapter,
         EntityType? entityType,
+        string? tagSlug,
         PaginationParams pagination,
         CancellationToken ct = default);
 }
