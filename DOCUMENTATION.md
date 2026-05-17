@@ -121,11 +121,10 @@ Bookmarks/
   Dtos/BookmarkDto.cs
 
 Characters/
-  CharacterService.cs            ← full CRUD; ToDto (writes) + ToDetailDto (reads, embeds relationships) + cache invalidation
+  CharacterService.cs            ← read-only: ToDetailDto embeds relationships. Writes go through Content/ (generic)
   ICharacterRepository.cs
   ICharacterService.cs
-  Dtos/                          ← CharacterDto, CharacterDetailDto, CharacterRelationDtos, CharacterListItemDto, CreateCharacterRequest, UpdateCharacterRequest
-  Validators/
+  Dtos/                          ← CharacterDto, CharacterDetailDto, CharacterRelationDtos, CharacterListItemDto
 
 Comments/
   CommentService.cs              ← list (spoiler-filtered), create, soft-delete, toggle reaction
@@ -149,8 +148,19 @@ Common/
     ConflictException.cs         → 409
     ValidationException.cs       → 400 (carries field-level errors)
 
+Content/                         ← generalized content management for all 17 types
+  ContentField.cs, ContentRelation.cs, ContentFieldKind.cs   ← editable-field / relation model
+  ContentFields.cs, ContentRelations.cs, PageFields.cs       ← terse typed factories for descriptors
+  IContentTypeDescriptor.cs, ContentTypeDescriptor.cs        ← per-type schema + persistence hooks
+  Descriptors/{Entity}ContentDescriptor.cs (x17)             ← one declarative descriptor per content type
+  IContentTypeRegistry.cs, ContentTypeRegistry.cs            ← resolves a descriptor by EntityType
+  ContentDiff.cs, ContentSnapshot.cs                         ← parsed diff + raw read-back model
+  IContentMutationService.cs, ContentMutationService.cs      ← validates + applies a diff (Create/Update/Delete)
+  IEditorContentService.cs, EditorContentService.cs          ← direct editor writes; log an auto-approved suggestion
+  Dtos/                          ← ContentTypeDescriptorDto, ContentWriteRequest, ContentWriteResult
+
 EditSuggestions/
-  EditSuggestionService.cs       ← submit/approve/reject + diff apply on Page + notify submitter
+  EditSuggestionService.cs       ← submit/approve/reject for any type; approval applies the diff via ContentMutationService
   IEditSuggestionRepository.cs
   IEditSuggestionService.cs
   Dtos/                          ← EditSuggestionDto, CreateEditSuggestionRequest
@@ -234,7 +244,7 @@ Auth/
   AuthPolicies.cs                ← policy name constants matching Roles
   CurrentUser.cs                 ← static helpers: GetId(claims), GetCurrentChapter(claims)
 
-Controllers/                     ← 26 controllers (10 original + 16 read-only encyclopedic), see §6
+Controllers/                     ← 28 controllers + ContentTypeRouting helper (content management via ContentController + ContentTypesController), see §6
 
 Middleware/
   ExceptionHandlingMiddleware.cs ← maps app exceptions → ProblemDetails / ValidationProblemDetails
@@ -352,10 +362,11 @@ await conn.start();
 | `ForbiddenException`    | 403    | `ProblemDetails`                                         |
 | `NotFoundException`     | 404    | `ProblemDetails`                                         |
 | `ConflictException`     | 409    | `ProblemDetails`                                         |
+| `DbUpdateException`     | 409    | `ProblemDetails` (EF Core unique / FK violation on save) |
 | `Exception` (catch-all) | 500    | `ProblemDetails` (message swallowed; logged via Serilog) |
 
 
-All five custom exceptions live in `ORVWiki.Application/Common/Exceptions/`.
+The five custom exceptions live in `ORVWiki.Application/Common/Exceptions/`; `DbUpdateException` is EF Core's own — caught so a unique-index or FK violation on save reads as a correctable 409 instead of an opaque 500.
 
 ### 4.7 Logging
 
@@ -387,19 +398,17 @@ This is the **fast path**. All 16 non-Character encyclopedic entities use it; mi
 
 > **Naming gotchas:** `Attribute` clashes with `System.Attribute` (use `using AttributeEntity = ORVWiki.Application.Entities.Attribute;`). `Dokkaebi` clashes with its own namespace (use folder `Dokkaebis/` and alias `using DokkaebiEntity = ORVWiki.Application.Entities.Dokkaebi;`).
 
-### 5.2 Adding full CRUD for an encyclopedic entity (e.g., write API)
+### 5.2 Content management — create / edit / delete
 
-`Character` is the template — it predates the generic read path and keeps its own `ICharacterRepository`/`CharacterService` because it needs Create/Update/Delete with cache invalidation, validators, and slug uniqueness checks.
+All 17 content types are editable through one generic, schema-driven engine — there is no per-type write code. The pieces live in `ORVWiki.Application/Content/`:
 
-1. **Application** — under `ORVWiki.Application/{Entities}/`:
-  - `Dtos/` — `Create{Entity}Request`, `Update{Entity}Request` (in addition to the read DTOs from §5.1).
-  - `I{Entity}Repository : IRepository<TEntity>` — copy `ICharacterRepository` shape (`GetWithPageByIdAsync`, `SlugExistsAsync`, etc.).
-  - `I{Entity}Service` and `{Entity}Service` — copy `CharacterService`. The service can still apply spoiler rendering on read paths via injected `ISpoilerService`, or delegate read methods to a `PagedEntityReadService` subclass and only own the writes.
-  - `Validators/` — slug, title, discoveryChapter, entity-specific rules. `FluentValidation` auto-discovered from the assembly.
-2. **Infrastructure** — `{Entity}Repository : Repository<TEntity>, I{Entity}Repository`. Follow `CharacterRepository`: eager-load `Page`, apply spoiler gate at SQL.
-3. **API** — controller mirroring `CharactersController`. Reader for GET, Editor for POST/PUT, Admin for DELETE.
-4. **DI** — register both interfaces in `AddApplication()` and `AddInfrastructure()`.
-5. **Cache invalidation** — if write methods can change Page metadata (title, slug, discoveryChapter, shortDescription), call `cache.Remove(PageCacheKeys.BySlug(slug))` after `SaveChanges` and inject `IMemoryCache`.
+- **Descriptor** — `{Entity}ContentDescriptor : ContentTypeDescriptor<TEntity>` declares the type's editable `Fields` and `Relations` (pivot collections) with the `ContentFields` / `ContentRelations` / `PageFields` factories. Descriptors are stateless singletons, assembly-scanned into `IContentTypeRegistry`.
+- **Engine** — `ContentMutationService` validates a `ContentDiff` (`{ fields, relations }`) against a descriptor and applies a Create / Update / Delete onto the `Page` + satellite entity + pivots in one transaction.
+- **Editor writes** — `EditorContentService` (behind `POST/PUT/DELETE /api/content/{type}`) applies immediately and records an auto-approved `EditSuggestion`, so the suggestion table doubles as the wiki's change history.
+- **Suggestions** — `EditSuggestionService.ApproveAsync` runs the same engine, so reader-submitted edits and new-page proposals apply identically.
+- **Schema** — `GET /api/content-types` serves each descriptor as JSON (`ContentTypeDescriptorDto`); the frontend renders forms from it with no per-type code.
+
+To expose a **new editable field** on an existing type, add one `ContentFields.*` entry to that type's descriptor — nothing else changes. To make a **brand-new entity** editable, give it a 1:1 `Page` + `IPagedEntity` (§5.1) and add a `{Entity}ContentDescriptor`; the registry, engine, API and frontend pick it up automatically. Cross-field rules go in the descriptor's optional `ValidateCrossFields` hook.
 
 ### 5.3 Adding a new endpoint that needs the user's spoiler chapter
 
@@ -484,9 +493,8 @@ Tags are a small unspoilerable lookup set, so the whole list is returned unpagin
 | GET    | `/?page&pageSize` | R    | Paginated visible characters (list items)   |
 | GET    | `/{id:long}`      | R    | One character + embedded relationship links |
 | GET    | `/by-slug/{slug}` | R    | Same, by slug                               |
-| POST   | `/`               | E    | Create character + its page                 |
-| PUT    | `/{id:long}`      | E    | Replace character + page metadata            |
-| DELETE | `/{id:long}`      | A    | Cascade delete via Page FK                  |
+
+Create, edit and delete go through the generic content API (see **Content management** below); `CharactersController` itself is read-only.
 
 **Character detail payload.** The two GET-detail endpoints return `CharacterDetailDto` — the character's own fields plus eleven arrays. Each pivot-derived entry is a navigable link (target `id` + `slug` + display name) carrying its join-row metadata:
 
@@ -496,7 +504,7 @@ Tags are a small unspoilerable lookup set, so the whole list is returned unpagin
 - `deifiedConstellations`, `originatedFables` — constellations the character became and fables that originated from them (direct FK, not pivots).
 - `tags` — the character page's tags (`id`, `name`, `slug`, `color`); each links to the tag's filtered page list.
 
-Each relation is spoiler-gated on the **target's** `discoveryChapter`, so a reader never learns a character holds a skill/stigma whose page is still hidden. List, create and update still return the flat `CharacterDto` (no relationships).
+Each relation is spoiler-gated on the **target's** `discoveryChapter`, so a reader never learns a character holds a skill/stigma whose page is still hidden. The list endpoint returns the flat `CharacterListItemDto` (no relationships).
 
 
 ### Read-only encyclopedic entities — spoiler-gated
@@ -534,7 +542,20 @@ All 16 entities below share the same three-endpoint shape via `PagedEntityReadSe
 
 **Scenario and Location detail** additionally embed their `ScenarioLocation` links — `ScenarioDto.locations` lists the places a scenario plays out, `LocationDto.scenarios` lists the scenarios staged there, each spoiler-gated on the linked entity's `discoveryChapter`. The other 14 entities use the generic `PagedEntityRepository`; Scenario and Location register subclasses that override its `DetailQuery` hook (see §5.1) to eager-load the pivot for single-entity reads while list reads stay lean.
 
-**Write endpoints (POST/PUT/DELETE) are not yet exposed for these 16.** Add them by mirroring `CharactersController` per §5.2 when a write workflow is needed.
+### Content management (`/api/content-types`, `/api/content`)
+
+Every content type — Character and the 16 encyclopedic entities — is created, edited and deleted through one generic, schema-driven API (see §5.2).
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET    | `/api/content-types`           | R | Schema for all 17 types (fields, kinds, relations) |
+| GET    | `/api/content-types/{type}`    | R | Schema for one type |
+| GET    | `/api/content/{type}/{pageId}` | R | Raw (un-rendered) field + relation values, for an edit form |
+| POST   | `/api/content/{type}`          | E | Create a page of that type |
+| PUT    | `/api/content/{type}/{pageId}` | E | Update a page |
+| DELETE | `/api/content/{type}/{pageId}` | E | Delete a page (cascades to its entity + pivots) |
+
+`{type}` is the snake_case `EntityType` (`character`, `demon_king`, …). Editor writes apply immediately and are logged as auto-approved `EditSuggestion` rows. Body for POST/PUT: `{ changes: { fields, relations }, reason? }` — `fields` maps descriptor field names to values, `relations` carries `add` / `update` / `remove` ops on pivot collections.
 
 ### Comments (`/api/comments`)
 
@@ -561,15 +582,15 @@ All 16 entities below share the same three-endpoint shape via `PagedEntityReadSe
 
 | Method | Path                     | Auth | Purpose                                         |
 | ------ | ------------------------ | ---- | ----------------------------------------------- |
-| POST   | `/`                      | R    | Submit (`{ pageId, proposedChanges, reason? }`) |
+| POST   | `/`                      | R    | Submit (`{ operation, entityType, pageId?, proposedChanges, reason? }`) |
 | GET    | `/mine?page&pageSize`    | R    | My submissions                                  |
 | GET    | `/?status&page&pageSize` | E    | Review queue                                    |
 | GET    | `/{id:long}`             | E    | Detail                                          |
-| POST   | `/{id:long}/approve`     | E    | Apply diff to Page + notify submitter           |
+| POST   | `/{id:long}/approve`     | E    | Apply the change via ContentMutationService + notify submitter |
 | POST   | `/{id:long}/reject`      | E    | Notify submitter                                |
 
 
-**Diff format** (JSON object). Currently auto-applied keys on `Page`: `title` (string), `shortDescription` (string|null), `discoveryChapter` (int). Other keys are stored verbatim and ignored on apply — meant as flags for the editor to apply manually.
+**`operation`** is `Update` (edit an existing page) or `Create` (propose a new page) — readers may submit either; `Delete` is editor-only via the content API. **`proposedChanges`** is a `{ fields, relations }` diff: `fields` maps any descriptor field of the target type to its new value, `relations` carries `add` / `update` / `remove` ops on pivot collections. On approval the diff is applied by the same `ContentMutationService` the editor content API uses, so any field of any of the 17 types is handled — no longer Page-only. Editor content writes are recorded here as auto-approved rows, so this endpoint is also the wiki's change history.
 
 ### Notifications (`/api/notifications`)
 
@@ -711,14 +732,6 @@ curl -X PATCH http://localhost:<port>/api/users/me/current-chapter \
 
 The JWT carries `current_chapter` as a claim, set when `JwtTokenGenerator.Generate(user)` runs (login or register). After `PATCH /api/users/me/current-chapter`, the **DB row is updated but the active token is stale**. The user must re-login to get a fresh token. Acceptable for MVP since tokens expire in 60 minutes anyway. To fix: issue refresh tokens and re-mint on chapter change, or read `current_chapter` from DB per request (loses stateless JWT benefits).
 
-### Only `Character` has full CRUD
-
-The other 16 encyclopedic entities (`Constellation`, `Nebula`, `Stigma`, etc.) expose **read-only** spoiler-rendered endpoints via `PagedEntityReadService` (see §5.1). Adding POST/PUT/DELETE means mirroring `CharactersController` per §5.2 — copy the validators, the slug-uniqueness check, and the `cache.Remove(PageCacheKeys.BySlug(...))` invalidation calls. Cookie-cutter extension, not new design.
-
-### EditSuggestion diff applies only Page-level fields
-
-`ApplyDiffToPage` handles `title`, `shortDescription`, `discoveryChapter`. Diffs targeting entity-specific fields (`biography`, `effect`, etc.) are stored but not applied — the editor must apply them manually. To extend: add per-entity-type appliers, dispatched on `Page.EntityType`.
-
 ### No rate limiting
 
 Anyone with valid credentials can spam `POST /api/comments`, `POST /api/edit-suggestions`, etc. Add `Microsoft.AspNetCore.RateLimiting` policies before production.
@@ -768,7 +781,7 @@ Each phase shipped self-contained. The final solution is the union of all eight.
 | 9 — Timeline rework    | `EventConnection` pivot dropped. New `Jump` entity (worldline-to-worldline edges with `CharacterLabel`, optional `Description` / `LengthEstimate` / `ArcId`). `TimelineDto` shape became `{Worldlines, Events, Jumps}`. Migration: `20260509205046_WorldlineJumpsRefactor`.                                                                                                       |
 | 10 — Containerization  | Multi-stage Dockerfile for the API (.NET 10 publish → aspnet runtime, listens on `$PORT` for cloud hosts). Nginx-based frontend image with an envsubst template config so `PORT` / `API_HOST` / `API_PORT` are runtime-configurable. `docker-compose.yml` for local dev + `docker-compose.prod.yml` for handoff. Permissive-in-Dev CORS in `Program.cs` added in support.        |
 | 11 — Cloud deployment  | API + managed Postgres on Railway, static frontend on GitHub Pages, multi-arch images (`amd64`+`arm64`) pushed to GHCR (`ghcr.io/medardwork/orv-api`, `…/orv-web`). `js/config.js` carries the per-deployment API URL; `core.js` picks the right default based on hostname; localStorage overrides honored except when stale localhost saves block production.                  |
-
+| 12 — Content management | Descriptor-registry + generic mutation engine: Character and the 16 read-only types become fully editable through `/api/content`. `EditSuggestion` generalized to Create/Update/Delete on any field of any type; editor writes auto-logged as change history. Schema-driven editor UI, generalized suggest modal + review queue on the frontend. Character's bespoke write code removed. Migration: `20260517071124_GeneralizeEditSuggestions`. |
 
 ---
 
@@ -781,7 +794,7 @@ When picking this project back up, here's the minimum to know:
 - **Auth = JWT bearer**, role claim + `current_chapter` claim. Three policies in `Program.cs`.
 - **Spoiler enforcement is server-side**: `WHERE discovery_chapter <= currentChapter` at SQL, and `[spoiler ch=N]` segments with `Content: null` for hidden ones. Every visible string in every encyclopedic DTO goes through `SpoilerService.RenderInline`.
 - **Add a new read-only entity** = implement `IPagedEntity`, drop in a `PagedEntityReadService<T,TDto,TListItemDto>` subclass, register the service. The repo is open-generic — no per-entity registration. See §5.1.
-- **Add full CRUD** = mirror Character (Service + Repository + Controller + DTOs + Validators) and register in both DI extensions. See §5.2.
+- **Content is editable through one generic API** — `/api/content` + a per-type descriptor in `ORVWiki.Application/Content/Descriptors/`; no per-type write code. See §5.2.
 - **Notifications** = inject `INotificationService`, call `PublishAsync(...)` after your own `SaveChanges` succeeds.
 - `**Attribute` entity needs a `using AttributeEntity = ...;` alias** when referenced alongside `using System;`. `**Dokkaebi` entity needs a `using DokkaebiEntity = ...;` alias** when its module's namespace is in scope (folder is named `Dokkaebis/` to reduce the chance of collision).
 - **Cache** lives only on `PageService.GetVisibleBySlugAsync`. Invalidate with `cache.Remove(PageCacheKeys.BySlug(slug))` after any write that changes Page fields.
