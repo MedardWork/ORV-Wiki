@@ -131,7 +131,10 @@ const api = {
       try { data = await res.json(); } catch {}
     }
     if (!res.ok) {
-      const msg = data?.detail || data?.title || data?.errors && Object.values(data.errors).flat().join('; ') || res.statusText || 'Request failed';
+      // Prefer the specific field errors over the generic problem title
+      // ("Validation failed.") so the user sees what actually went wrong.
+      const errs = data?.errors ? Object.values(data.errors).flat().join('; ') : null;
+      const msg = errs || data?.detail || data?.title || res.statusText || 'Request failed';
       throw new ApiError(res.status, msg, data);
     }
     return data;

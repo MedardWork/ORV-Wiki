@@ -1,9 +1,10 @@
+using ORVWiki.Application.Common;
 using ORVWiki.Application.Entities.Pivots;
 using ORVWiki.Application.Enums;
 
 namespace ORVWiki.Application.Entities;
 
-public class Character
+public class Character : IPagedEntity
 {
     public long Id { get; set; }
     public long PageId { get; set; }

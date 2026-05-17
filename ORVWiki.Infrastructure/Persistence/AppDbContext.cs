@@ -101,6 +101,7 @@ public class AppDbContext : DbContext, IAppDbContext
         b.HasPostgresEnum<CommentReactionType>();
         b.HasPostgresEnum<EditSuggestionStatus>();
         b.HasPostgresEnum<NotificationType>();
+        b.HasPostgresEnum<SuggestionOperation>();
     }
 
     private static void ConfigurePage(ModelBuilder b)
@@ -548,6 +549,7 @@ public class AppDbContext : DbContext, IAppDbContext
             e.Property(x => x.ProposedChanges).HasColumnType("jsonb").IsRequired();
             e.Property(x => x.Reason).HasColumnType("text");
             e.Property(x => x.Status).HasDefaultValue(EditSuggestionStatus.Pending);
+            e.Property(x => x.Operation).HasDefaultValue(SuggestionOperation.Update);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
             e.HasOne(x => x.User)

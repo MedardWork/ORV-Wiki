@@ -176,3 +176,10 @@ public enum NotificationType
     Mention,
     System
 }
+
+public enum SuggestionOperation
+{
+    Update,
+    Create,
+    Delete
+}

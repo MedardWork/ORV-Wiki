@@ -8,6 +8,7 @@ using ORVWiki.Application.Characters;
 using ORVWiki.Application.Comments;
 using ORVWiki.Application.Concepts;
 using ORVWiki.Application.Constellations;
+using ORVWiki.Application.Content;
 using ORVWiki.Application.DemonKings;
 using ORVWiki.Application.Dokkaebis;
 using ORVWiki.Application.EditSuggestions;
@@ -64,6 +65,15 @@ public static class DependencyInjection
         services.AddScoped<SkillService>();
         services.AddScoped<StigmaService>();
         services.AddScoped<WorldlineService>();
+
+        // Generic content-management engine + per-type descriptors (assembly-scanned).
+        foreach (var descriptorType in typeof(DependencyInjection).Assembly.GetTypes()
+                     .Where(t => t is { IsAbstract: false, IsInterface: false }
+                                 && typeof(IContentTypeDescriptor).IsAssignableFrom(t)))
+            services.AddSingleton(typeof(IContentTypeDescriptor), descriptorType);
+        services.AddSingleton<IContentTypeRegistry, ContentTypeRegistry>();
+        services.AddScoped<IContentMutationService, ContentMutationService>();
+        services.AddScoped<IEditorContentService, EditorContentService>();
 
         services.AddValidatorsFromAssemblyContaining<AuthService>();
         return services;

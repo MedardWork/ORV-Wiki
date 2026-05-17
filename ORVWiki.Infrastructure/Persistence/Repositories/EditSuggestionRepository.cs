@@ -59,6 +59,9 @@ public class EditSuggestionRepository(AppDbContext db)
         return new PaginatedResult<EditSuggestion>(items, total, p.SafePage, p.SafePageSize);
     }
 
-    public Task<bool> PageExistsAsync(long pageId, CancellationToken ct = default)
-        => Db.Pages.AnyAsync(p => p.Id == pageId, ct);
+    public Task<EntityType?> GetPageEntityTypeAsync(long pageId, CancellationToken ct = default)
+        => Db.Pages
+            .Where(p => p.Id == pageId)
+            .Select(p => (EntityType?)p.EntityType)
+            .FirstOrDefaultAsync(ct);
 }

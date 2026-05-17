@@ -10,6 +10,6 @@ namespace ORVWiki.Application.Common;
 public interface IPagedEntity
 {
     long Id { get; }
-    long PageId { get; }
-    Page Page { get; }
+    long PageId { get; set; }
+    Page Page { get; set; }
 }

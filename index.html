@@ -63,9 +63,11 @@
     router         — navigate, renderRoute (referenced by everything above)
     views          — renderHome, renderCategory, renderPage, renderCharacter,
                      pageCard, errorBlock, crumbs
-    comments       — commentsSection, openSuggest
+    comments       — commentsSection
     views-user     — renderBookmarks, renderMySuggestions, renderQueue,
                      renderTimeline
+    editor         — schema-driven content forms, openSuggest,
+                     openSuggestNew, editor tool views, renderDiff
     notifications  — wires up #notifBtn, #chapterPill, #searchInput at parse
                      time — must run after the elements above exist
     init           — kicks everything off; must be last
@@ -79,6 +81,7 @@
 <script src="js/views.js"></script>
 <script src="js/comments.js"></script>
 <script src="js/views-user.js"></script>
+<script src="js/editor.js"></script>
 <script src="js/notifications.js"></script>
 <script src="js/init.js"></script>
 </body>

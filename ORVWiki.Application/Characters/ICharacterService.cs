@@ -12,8 +12,4 @@ public interface ICharacterService
         PaginationParams pagination,
         int currentChapter,
         CancellationToken ct = default);
-
-    Task<CharacterDto> CreateAsync(CreateCharacterRequest request, int currentChapter, CancellationToken ct = default);
-    Task<CharacterDto> UpdateAsync(long id, UpdateCharacterRequest request, int currentChapter, CancellationToken ct = default);
-    Task DeleteAsync(long id, CancellationToken ct = default);
 }

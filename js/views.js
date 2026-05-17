@@ -86,6 +86,13 @@ function renderCategory(type, page=1) {
     el('div', { class:'summary' }, info.desc + '. Entries appear here only if your current reading chapter has reached their introduction.'),
   ));
 
+  if (State.user) {
+    v.appendChild(el('div', { style:{ marginBottom:'1rem' }},
+      isEditor()
+        ? el('button', { class:'btn btn-secondary btn-sm', onclick:() => navigate('editor/' + type + '/new') }, '+ New ' + info.single)
+        : el('button', { class:'btn btn-secondary btn-sm', onclick:() => openSuggestNew(type) }, '✎ Suggest a new ' + info.single)));
+  }
+
   const listEl = el('div', { class:'page-grid' }, el('div', { class:'loader' }, el('div', { class:'loader-spinner' })));
   const pagEl  = el('div', {});
   v.appendChild(listEl);
@@ -354,6 +361,8 @@ function sidePanel(p) {
       el('h4', {}, 'Reader Tools'),
       bookmarkBtn,
       el('button', { class:'btn btn-ghost btn-sm', style:{ width:'100%', marginTop:'.4rem' }, onclick:() => openSuggest(p) }, '✎ Suggest an edit'),
+      isEditor() ? el('button', { class:'btn btn-ghost btn-sm', style:{ width:'100%', marginTop:'.4rem' },
+        onclick:() => navigate('editor/' + (p.entityType || p.entity_type) + '/' + p.id) }, '✦ Edit this page') : null,
     ));
   }
 

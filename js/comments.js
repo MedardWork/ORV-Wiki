@@ -164,56 +164,6 @@ function openReply(parent, page, parentNode) {
 }
 
 /* ============================================================
-   EDIT SUGGEST
+   EDIT SUGGEST — openSuggest / openSuggestNew now live in
+   js/editor.js: schema-driven forms covering every content type.
 ============================================================ */
-function openSuggest(p) {
-  if (!State.user) return openAuth('login');
-  openModal(close => {
-    // The page-level Title and ShortDescription come back as RenderedContent
-    // when fetched from /api/pages/{slug}. The edit-suggestion endpoint
-    // expects plain strings (the editor types raw `[spoiler ch=N]…[/spoiler]`
-    // markup themselves), so we flatten via plainTextOf for the prefilled
-    // values — including the hidden-segment placeholder so the editor knows
-    // there is content there they can't see and need to preserve.
-    const initialTitle = plainTextOf(p.title);
-    const initialDesc  = plainTextOf(p.shortDescription || p.short_description);
-    const titleIn = el('input', { type:'text', value: initialTitle, placeholder:'New title (optional)' });
-    const descIn  = el('textarea', { placeholder:'New short description (optional)' });
-    descIn.value = initialDesc;
-    const chIn    = el('input', { type:'number', min:'1', value: p.discoveryChapter ?? p.discovery_chapter });
-    const reasonIn= el('textarea', { placeholder:'Reason / source (optional)' });
-    return el('div', { class:'modal-content' },
-      el('h2', {}, 'Suggest an Edit'),
-      el('div', { class:'modal-sub' }, 'Editors will review your proposal. Page-level fields (title, summary, discovery chapter) can be auto-applied.'),
-      el('div', { class:'field' }, el('label', {}, 'Title'), titleIn),
-      el('div', { class:'field' },
-        el('label', {}, 'Short description'),
-        descIn,
-        el('div', { style:{ fontSize:'.78rem', color:'var(--text-3)', marginTop:'.3rem' }},
-          'Use ', el('code', {}, '[spoiler ch=N]…[/spoiler]'), ' to hide passages until reading chapter N.'),
-      ),
-      el('div', { class:'field' }, el('label', {}, 'Discovery chapter'), chIn),
-      el('div', { class:'field' }, el('label', {}, 'Reason'), reasonIn),
-      el('div', { class:'modal-actions' },
-        el('button', { class:'btn btn-ghost', onclick:close }, 'Cancel'),
-        el('button', { class:'btn btn-primary', onclick:async () => {
-          const changes = {};
-          if (titleIn.value && titleIn.value !== initialTitle) changes.title = titleIn.value;
-          if (descIn.value !== initialDesc) changes.shortDescription = descIn.value;
-          const newCh = parseInt(chIn.value);
-          if (newCh && newCh !== (p.discoveryChapter ?? p.discovery_chapter)) changes.discoveryChapter = newCh;
-          if (Object.keys(changes).length === 0) { toast('No changes detected', 'error'); return; }
-          try {
-            await api.post('/api/edit-suggestions', {
-              pageId: p.id,
-              proposedChanges: changes,
-              reason: reasonIn.value.trim() || null,
-            });
-            toast('Suggestion submitted — thank you', 'success');
-            close();
-          } catch (e) { toast(e.message, 'error'); }
-        }}, 'Submit'),
-      ),
-    );
-  });
-}

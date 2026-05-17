@@ -31,6 +31,14 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             await WriteProblem(context, StatusCodes.Status409Conflict, ex.Message);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            // A unique-index or foreign-key violation on save — surfaces as a
+            // correctable 409 rather than an opaque 500.
+            logger.LogWarning(ex, "Database constraint violation");
+            await WriteProblem(context, StatusCodes.Status409Conflict,
+                "That change conflicts with existing data — a value such as the slug or name may already be in use.");
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception");

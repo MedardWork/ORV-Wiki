@@ -84,6 +84,7 @@ function buildMenubar() {
     cPanel.appendChild(el('div', { class:'menu-divider' }));
     cPanel.appendChild(el('div', { class:'menu-label' }, 'Review'));
     cPanel.appendChild(el('button', { class:'menu-item', onclick:() => { closeAllMenus(); navigate('queue'); }}, el('span', { class:'icon' }, '⚖'), 'Suggestion Queue'));
+    cPanel.appendChild(el('button', { class:'menu-item', onclick:() => { closeAllMenus(); navigate('editor'); }}, el('span', { class:'icon' }, '✦'), 'Editor Tools'));
   }
   community.appendChild(cBtn);
   community.appendChild(cPanel);

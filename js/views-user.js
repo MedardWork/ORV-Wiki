@@ -57,73 +57,104 @@ async function renderMySuggestions() {
   } catch (e) { app.innerHTML = ''; app.appendChild(errorBlock(e)); }
 }
 
-async function renderQueue() {
+async function renderQueue(status) {
   if (!State.user) return openAuth('login'), navigate('');
+  status = status || 'pending';
   const app = $('#app');
   app.innerHTML = '<div class="loader"><div class="loader-spinner"></div></div>';
   try {
-    const r = await api.get('/api/edit-suggestions?status=pending&page=1&pageSize=30');
+    const statusQuery = status === 'all' ? '' : '&status=' + status;
+    const r = await api.get('/api/edit-suggestions?page=1&pageSize=40' + statusQuery);
     const items = r?.items || r || [];
     app.innerHTML = '';
     const v = el('div', { class:'view' });
     v.appendChild(crumbs([['', 'Archive'], [null, 'Suggestion Queue']]));
     v.appendChild(el('div', { class:'detail-header' },
       el('div', { class:'type' }, '⚖ Editor Review'),
-      el('h1', {}, 'Pending Edit Suggestions'),
-      el('div', { class:'summary' }, 'Approve or reject reader-submitted edits. Editor or Admin role required.'),
+      el('h1', {}, 'Edit Suggestions'),
+      el('div', { class:'summary' }, 'Approve or reject reader-submitted edits. Editor-applied changes also appear here as change history.'),
     ));
+    const filter = el('select', { onchange:e => renderQueue(e.target.value) },
+      el('option', { value:'pending' }, 'Pending review'),
+      el('option', { value:'approved' }, 'Approved'),
+      el('option', { value:'rejected' }, 'Rejected'),
+      el('option', { value:'all' }, 'All'),
+    );
+    filter.value = status;
+    v.appendChild(el('div', { class:'field', style:{ maxWidth:'240px', marginBottom:'1rem' }},
+      el('label', {}, 'Show'), filter));
     v.appendChild(suggestionsList(items, true));
     app.appendChild(v);
   } catch (e) { app.innerHTML = ''; app.appendChild(errorBlock(e)); }
 }
 
 function suggestionsList(items, asReviewer=false) {
-  if (!items.length) return el('div', { class:'empty' }, el('div', { class:'glyph' }, '✎'), el('h3', {}, 'Nothing to show'), el('p', {}, asReviewer ? 'No pending suggestions.' : 'You have not submitted any edits yet.'));
+  if (!items.length) return el('div', { class:'empty' }, el('div', { class:'glyph' }, '✎'),
+    el('h3', {}, 'Nothing to show'),
+    el('p', {}, asReviewer ? 'No suggestions match this filter.' : 'You have not submitted any edits yet.'));
   const list = el('div', { style:{ display:'flex', flexDirection:'column', gap:'.6rem' }});
+  const opColor = { create:'#6ed89a', update:'var(--gold-bright)', delete:'#e08585' };
   items.forEach(s => {
-    const status = (s.status || s.Status || 'pending').toLowerCase();
+    const status = (s.status || 'pending').toLowerCase();
+    const operation = (s.operation || 'update').toLowerCase();
+    const entityType = s.entityType || s.entity_type;
+    const typeInfo = ENTITY_TYPES[entityType] || { single: humanize(entityType) || 'Page', glyph:'◇' };
     const isMine = State.user && (s.userId ?? s.user_id) === State.user.id;
-    const titleText = s.pageTitle || s.PageTitle || ('Page #' + (s.pageId ?? s.page_id));
+    const changes = s.proposedChanges || s.proposed_changes || {};
     const slug = s.pageSlug || s.page_slug;
-    const titleNode = slug
-      ? el('a', { href:'#/page/'+slug }, titleText)
-      : titleText;
+    const titleText = s.pageTitle || s.page_title
+      || (changes.fields && changes.fields.title) || ('New ' + typeInfo.single);
+    const titleNode = slug ? el('a', { href:'#/page/' + slug }, titleText) : titleText;
+
     const card = el('div', { class:'detail-body', style:{ padding:'1rem 1.2rem', margin:0 }},
       el('div', { style:{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:'.6rem' }},
         el('div', {},
-          el('h4', { style:{ marginBottom:'.2rem' }}, titleNode),
-          el('div', { style:{ fontSize:'.78rem', color:'var(--text-3)' }},
-            'Submitted ', fmtDate(s.createdAt || s.created_at),
-            (s.username ? ' by ' + s.username : ''),
+          el('div', { style:{ display:'flex', alignItems:'center', gap:'.5rem', flexWrap:'wrap' }},
+            el('span', { style:{ fontSize:'.64rem', textTransform:'uppercase', letterSpacing:'.06em',
+              fontWeight:'700', padding:'.14rem .5rem', borderRadius:'4px', border:'1px solid var(--border)',
+              color: opColor[operation] || 'var(--text-2)' }}, operation),
+            el('h4', { style:{ margin:0 }}, titleNode),
           ),
+          el('div', { style:{ fontSize:'.78rem', color:'var(--text-3)', marginTop:'.25rem' }},
+            typeInfo.glyph + ' ' + typeInfo.single + ' · submitted ' + fmtDate(s.createdAt || s.created_at)
+            + (s.username ? ' by ' + s.username : '')),
         ),
-        el('span', { class:'status-badge status-'+status }, status),
+        el('span', { class:'status-badge status-' + status }, status),
       ),
       s.reason ? el('p', { style:{ marginTop:'.6rem', fontStyle:'italic', color:'var(--text-2)' }}, '"' + s.reason + '"') : null,
-      el('pre', { style:{ marginTop:'.6rem', padding:'.6rem .8rem', background:'var(--space)', borderRadius:'5px', fontSize:'.8rem', overflowX:'auto', color:'var(--cyan)', border:'1px solid var(--border)' }},
-        JSON.stringify(s.proposedChanges || s.proposed_changes || {}, null, 2)),
-      (asReviewer && status === 'pending') || isMine ? el('div', { style:{ marginTop:'.8rem', display:'flex', gap:'.4rem', flexWrap:'wrap' }},
-        asReviewer && status === 'pending' ? el('button', { class:'btn btn-primary btn-sm', onclick:async () => {
-          try { await api.post('/api/edit-suggestions/'+s.id+'/approve'); toast('Approved', 'success'); renderQueue(); }
-          catch (e) { toast(e.message, 'error'); }
-        }}, '✓ Approve') : null,
-        asReviewer && status === 'pending' ? el('button', { class:'btn btn-danger btn-sm', onclick:async () => {
-          try { await api.post('/api/edit-suggestions/'+s.id+'/reject'); toast('Rejected'); renderQueue(); }
-          catch (e) { toast(e.message, 'error'); }
-        }}, '✕ Reject') : null,
-        isMine ? el('button', { class:'btn btn-ghost btn-sm', onclick:async () => {
-          if (!confirm('Delete this suggestion? This cannot be undone.')) return;
-          try {
-            await api.del('/api/edit-suggestions/'+s.id);
-            toast('Deleted');
-            asReviewer ? renderQueue() : renderMySuggestions();
-          } catch (e) { toast(e.message, 'error'); }
-        }}, '🗑 Delete') : null,
-      ) : null,
+      renderDiff(changes),
+      buildSuggestionActions(s, status, asReviewer, isMine),
     );
     list.appendChild(card);
   });
   return list;
+}
+
+function buildSuggestionActions(s, status, asReviewer, isMine) {
+  const canReview = asReviewer && status === 'pending';
+  if (!canReview && !isMine) return null;
+  const row = el('div', { style:{ marginTop:'.8rem', display:'flex', gap:'.4rem', flexWrap:'wrap' }});
+  if (canReview) {
+    row.appendChild(el('button', { class:'btn btn-primary btn-sm', onclick:async () => {
+      try { await api.post('/api/edit-suggestions/' + s.id + '/approve'); toast('Approved', 'success'); renderQueue(); }
+      catch (e) { toast(e.message, 'error'); }
+    }}, '✓ Approve'));
+    row.appendChild(el('button', { class:'btn btn-danger btn-sm', onclick:async () => {
+      try { await api.post('/api/edit-suggestions/' + s.id + '/reject'); toast('Rejected'); renderQueue(); }
+      catch (e) { toast(e.message, 'error'); }
+    }}, '✕ Reject'));
+  }
+  if (isMine) {
+    row.appendChild(el('button', { class:'btn btn-ghost btn-sm', onclick:async () => {
+      if (!confirm('Delete this suggestion? This cannot be undone.')) return;
+      try {
+        await api.del('/api/edit-suggestions/' + s.id);
+        toast('Deleted');
+        asReviewer ? renderQueue() : renderMySuggestions();
+      } catch (e) { toast(e.message, 'error'); }
+    }}, '🗑 Delete'));
+  }
+  return row.children.length ? row : null;
 }
 
 /* ============================================================

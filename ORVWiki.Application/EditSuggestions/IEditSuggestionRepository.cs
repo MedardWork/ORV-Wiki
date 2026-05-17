@@ -14,5 +14,5 @@ public interface IEditSuggestionRepository : IRepository<EditSuggestion>
     Task<PaginatedResult<EditSuggestion>> ListByUserAsync(
         long userId, PaginationParams p, CancellationToken ct = default);
 
-    Task<bool> PageExistsAsync(long pageId, CancellationToken ct = default);
+    Task<EntityType?> GetPageEntityTypeAsync(long pageId, CancellationToken ct = default);
 }

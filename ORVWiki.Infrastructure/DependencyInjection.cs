@@ -78,5 +78,6 @@ public static class DependencyInjection
         b.MapEnum<CommentReactionType>();
         b.MapEnum<EditSuggestionStatus>();
         b.MapEnum<NotificationType>();
+        b.MapEnum<SuggestionOperation>();
     }
 }

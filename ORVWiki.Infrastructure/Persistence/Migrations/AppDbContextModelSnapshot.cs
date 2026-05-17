@@ -40,6 +40,7 @@ namespace ORVWiki.Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "scenario_outcome", new[] { "succeeded", "failed", "withdrew", "pending" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "scenario_type", new[] { "main", "sub", "hidden", "bounty", "disaster" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "skill_type", new[] { "active", "passive", "general" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "suggestion_operation", new[] { "update", "create", "delete" });
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("ORVWiki.Application.Entities.Arc", b =>
@@ -602,7 +603,17 @@ namespace ORVWiki.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("PageId")
+                    b.Property<int>("EntityType")
+                        .HasColumnType("integer")
+                        .HasColumnName("entity_type");
+
+                    b.Property<int>("Operation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("operation");
+
+                    b.Property<long?>("PageId")
                         .HasColumnType("bigint")
                         .HasColumnName("page_id");
 
@@ -2138,7 +2149,6 @@ namespace ORVWiki.Infrastructure.Persistence.Migrations
                         .WithMany("EditSuggestions")
                         .HasForeignKey("PageId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("fk_edit_suggestions_pages_page_id");
 
                     b.HasOne("ORVWiki.Application.Entities.User", "ReviewedByUser")

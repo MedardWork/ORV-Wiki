@@ -25,6 +25,12 @@ function renderRoute() {
   if (head === 'bookmarks')  return renderBookmarks();
   if (head === 'suggestions')return renderMySuggestions();
   if (head === 'queue')      return renderQueue();
+  if (head === 'editor') {
+    if (!p[1])          return renderEditorHome();
+    if (!p[2])          return renderEditorType(p[1]);
+    if (p[2] === 'new') return renderContentEditor(p[1], null);
+    return renderContentEditor(p[1], p[2]);
+  }
   app.innerHTML = '<div class="empty"><div class="glyph">✦</div><h3>Lost in the Star Stream</h3><p>That route does not exist.</p></div>';
 }
 addEventListener('hashchange', renderRoute);
