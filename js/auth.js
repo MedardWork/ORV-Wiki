@@ -132,20 +132,61 @@ function applyAuth(authResp) {
     State.user.currentChapter = State.user.currentChapter ?? Number(State.user.current_chapter) ?? 0;
     State.user.role = State.user.role || State.user.roles || 'reader';
   }
+  saveToken(State.token);
   // Rebuild the menubar — its Community panel includes role-gated entries
   // (Suggestion Queue is editor/admin only), so it has to be regenerated
   // whenever the user's role might have changed.
   buildMenubar();
   renderUserArea();
+  // Re-render the current view so a page that 401'd while signed out (or
+  // showed chapter-gated content for the old chapter) refreshes against
+  // the new auth context — otherwise the user has to manually reload.
+  renderRoute();
 }
 
 function logout() {
   State.token = null;
   State.user = null;
+  saveToken(null);
   buildMenubar();
   renderUserArea();
   navigate('');
   toast('Signed out');
+}
+
+// Called once on page load. If a persisted token is present, populate
+// State.user synchronously from the JWT claims (so the UI doesn't flash
+// "Sign in" while we wait on the network) and then confirm with the
+// backend via /api/auth/me — refreshing the full UserDto on success, or
+// clearing the session if the token has been revoked or has expired.
+function restoreSession() {
+  if (!State.token) return;
+  const decoded = decodeJwt(State.token);
+  const expired = decoded?.exp && decoded.exp * 1000 < Date.now();
+  if (!decoded || expired) {
+    State.token = null;
+    saveToken(null);
+    return;
+  }
+  State.user = decoded;
+  State.user.username = State.user.username || State.user.unique_name || State.user.name || 'reader';
+  State.user.currentChapter = State.user.currentChapter ?? Number(State.user.current_chapter) ?? 0;
+  State.user.role = State.user.role || State.user.roles || 'reader';
+
+  api.get('/api/auth/me').then(u => {
+    if (!u) return;
+    State.user = { ...State.user, ...u };
+    buildMenubar();
+    renderUserArea();
+  }).catch(e => {
+    if (e.status === 401) {
+      State.token = null;
+      State.user = null;
+      saveToken(null);
+      buildMenubar();
+      renderUserArea();
+    }
+  });
 }
 
 /* ============================================================
@@ -165,7 +206,6 @@ function openChapterModal() {
         applyAuth(r);
         toast('Reading chapter set to ' + n, 'success');
         close();
-        if (State.view) renderRoute();
       } catch (e) { toast(e.message, 'error'); }
     };
     return el('div', {},

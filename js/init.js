@@ -13,6 +13,7 @@ document.addEventListener('click', e => {
 ============================================================ */
 function init() {
   startStarfield();
+  restoreSession();
   buildMenubar();
   renderUserArea();
   if (!location.hash) location.hash = '#/';

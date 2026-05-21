@@ -28,7 +28,9 @@ const State = {
     return window.ORV_API_BASE || '';
   })(),
   ignoreSpoilers: localStorage.getItem('orv.ignoreSpoilers') === '1',
-  token: null,
+  // Token is persisted so the user stays signed in across refreshes. The
+  // matching State.user is rebuilt in restoreSession() during init.
+  token: localStorage.getItem('orv.token'),
   user: null,
   view: { type: 'home', params: {} },
   notifUnread: 0,
@@ -38,6 +40,11 @@ const State = {
 function savePrefs() {
   localStorage.setItem('orv.apiBase', State.apiBase);
   localStorage.setItem('orv.ignoreSpoilers', State.ignoreSpoilers ? '1' : '0');
+}
+
+function saveToken(token) {
+  if (token) localStorage.setItem('orv.token', token);
+  else localStorage.removeItem('orv.token');
 }
 
 /* ============================================================
