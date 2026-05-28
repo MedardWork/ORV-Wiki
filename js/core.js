@@ -18,13 +18,16 @@ const State = {
   apiBase: (() => {
     const h = location.hostname;
     const isLocalOrigin = location.protocol === 'file:'
-      || h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0';
+      || h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0'
+      || /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h);
     const stored = localStorage.getItem('orv.apiBase');
-    const storedLooksLocal = stored && /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)/.test(stored);
+    const storedLooksLocal = stored && /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0|\d{1,3}(?:\.\d{1,3}){3})/.test(stored);
 
-    if (stored !== null && !(storedLooksLocal && !isLocalOrigin)) return stored;
+    if (stored !== null && stored !== '' && !(storedLooksLocal && !isLocalOrigin)) return stored;
     if (location.protocol === 'file:') return 'https://localhost:7138';
-    if (isLocalOrigin) return '';
+    // docker-compose nginx on :8080 reverse-proxies /api; any other local
+    // static server (python -m http.server, Live Server, …) talks to Kestrel.
+    if (isLocalOrigin) return location.port === '8080' ? '' : `http://${h}:5044`;
     return window.ORV_API_BASE || '';
   })(),
   ignoreSpoilers: localStorage.getItem('orv.ignoreSpoilers') === '1',
