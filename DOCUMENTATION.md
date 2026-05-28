@@ -53,7 +53,7 @@ Application depends on **nothing** from the other two. Infrastructure references
 
 ---
 
-## 2. Domain model (40 tables)
+## 2. Domain model (39 tables)
 
 Full schema is documented in `~/Desktop/ORV Wiki/ORV_Wiki_Database_Specifikacia.md` and the dbml at `~/Desktop/ORV Wiki/ORV_Wiki_dbdiagram.dbml`. Quick summary:
 
@@ -244,7 +244,7 @@ Auth/
   AuthPolicies.cs                ← policy name constants matching Roles
   CurrentUser.cs                 ← static helpers: GetId(claims), GetCurrentChapter(claims)
 
-Controllers/                     ← 28 controllers + ContentTypeRouting helper (content management via ContentController + ContentTypesController), see §6
+Controllers/                     ← 29 controllers + ContentTypeRouting helper (content management via ContentController + ContentTypesController), see §6
 
 Middleware/
   ExceptionHandlingMiddleware.cs ← maps app exceptions → ProblemDetails / ValidationProblemDetails
@@ -320,7 +320,7 @@ Same pattern, different field: `WHERE chapter_at_post <= currentChapter`. Implem
 **Where:**
 
 - Read: `PageService.GetVisibleBySlugAsync` wraps `IPageRepository.GetBySlugAsync` in `IMemoryCache.GetOrCreateAsync`.
-- Invalidate: `CharacterService.UpdateAsync` / `DeleteAsync` and `EditSuggestionService.ApproveAsync` call `cache.Remove(PageCacheKeys.BySlug(slug))` after their `SaveChangesAsync`.
+- Invalidate: `EditorContentService` (the generic content write path — its `InvalidateCache` runs on Create/Update/Delete) and `EditSuggestionService.ApproveAsync` call `cache.Remove(PageCacheKeys.BySlug(slug))` after their `SaveChangesAsync`. `CharacterService` is read-only since Phase 12, so there is no per-type write code to invalidate from.
 
 Cache keys live in `ORVWiki.Application/Pages/PageCacheKeys.cs` so writers and readers can't drift.
 
@@ -763,14 +763,14 @@ Removed from `ORVWiki.API/`: `WeatherForecast.cs`, `Controllers/WeatherForecastC
 
 ---
 
-## 10. The 8-phase roadmap (history)
+## 10. The 12-phase roadmap (history)
 
-Each phase shipped self-contained. The final solution is the union of all eight.
+Each phase shipped self-contained. The final solution is the union of all twelve.
 
 
 | Phase                  | What it added                                                                                                                                                                                                                                                                                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1 — Foundation         | 3-project solution, EF Core/Npgsql, all 40 entities + relations + constraints, snake_case naming, initial migration                                                                                                                                                                                                                                                            |
+| 1 — Foundation         | 3-project solution, EF Core/Npgsql, all 39 tables + relations + constraints, snake_case naming, initial migration                                                                                                                                                                                                                                                            |
 | 2 — Auth               | `User`/`Role` endpoints, JWT with `current_chapter` claim, BCrypt password hashing, 3 cumulative role policies, `DbInitializer` role seeding, exception middleware                                                                                                                                                                                                             |
 | 3 — Core wiki CRUD     | `IRepository<T>` generic + `Repository<T>` base, `PageRepository` and `CharacterRepository` with spoiler-aware queries, services + DTOs + validators, `PagesController` + `CharactersController`, pagination types                                                                                                                                                             |
 | 4 — Spoiler system     | `SpoilerService` with `IsRevealed`/`EnsureRevealed` (page gate) + `RenderInline` (inline `[spoiler ch=N]` parser → server-enforced segments), `Character.Biography` switched from raw string to `RenderedContent`                                                                                                                                                              |
@@ -790,7 +790,7 @@ Each phase shipped self-contained. The final solution is the union of all eight.
 When picking this project back up, here's the minimum to know:
 
 - **3 projects, dependencies API → Application ← Infrastructure**. Application has no ASP.NET/EF deps.
-- **40 tables**, every encyclopedic entity has 1:1 with `Page` (which holds `slug`, `title`, `discovery_chapter` — the spoiler gate field).
+- **39 tables**, every encyclopedic entity has 1:1 with `Page` (which holds `slug`, `title`, `discovery_chapter` — the spoiler gate field).
 - **Auth = JWT bearer**, role claim + `current_chapter` claim. Three policies in `Program.cs`.
 - **Spoiler enforcement is server-side**: `WHERE discovery_chapter <= currentChapter` at SQL, and `[spoiler ch=N]` segments with `Content: null` for hidden ones. Every visible string in every encyclopedic DTO goes through `SpoilerService.RenderInline`.
 - **Add a new read-only entity** = implement `IPagedEntity`, drop in a `PagedEntityReadService<T,TDto,TListItemDto>` subclass, register the service. The repo is open-generic — no per-entity registration. See §5.1.
@@ -960,10 +960,10 @@ URL: **https://medardwork.github.io/ORV-Wiki/** (the trailing slash matters — 
 
 Three-tier fallback in `js/core.js` (`State.apiBase` initializer):
 
-1. **localStorage `orv.apiBase`** wins — except when its value looks like a localhost URL AND the page itself isn't being served from a local origin. That carve-out exists because users who tested locally and saved `https://localhost:7138` would otherwise be stuck (the in-app Settings dialog is login-gated, creating a chicken-and-egg).
+1. **localStorage `orv.apiBase`** wins — unless it's empty, or it looks local (`localhost` / `127.0.0.1` / `0.0.0.0` / any bare `a.b.c.d` IP) AND the page itself isn't being served from a local origin. That carve-out exists because users who tested locally and saved `https://localhost:7138` would otherwise be stuck (the in-app Settings dialog is login-gated, creating a chicken-and-egg).
 2. **Hostname-based default** otherwise:
    - `file://` → `https://localhost:7138` (Kestrel dev URL)
-   - `localhost` / `127.0.0.1` / `0.0.0.0` → `''` (same-origin; docker-compose's nginx proxies `/api` and `/hubs`)
+   - **local origin** (`localhost` / `127.0.0.1` / `0.0.0.0`, or a private-LAN IP — `192.168.x`, `10.x`, `172.16–31.x`) → `''` when served on port `8080` (docker-compose's nginx proxies `/api` and `/hubs` same-origin), otherwise `http://<hostname>:5044` (Kestrel's HTTP dev URL — covers `python -m http.server`, Live Server, or opening the site from another device on the LAN)
    - Anywhere else → `window.ORV_API_BASE` from `js/config.js`
 
 `js/config.js` is loaded **before** `js/core.js` and holds one line:
